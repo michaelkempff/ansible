@@ -1,2 +1,2 @@
 # ansible
-Ansible repo for local network servers
+Ansible repo for Proxmox PVE Virtual Machines
