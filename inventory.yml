@@ -1,13 +1,17 @@
 all:
+  vars:
+    ansible_user: michael
+    ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
   children:
     servers:
       children:
         pve_server:
           hosts:
-            10.10.112.10:
+            10.10.112.10
         file_server:
           hosts:
-            10.10.112.20:
+            10.10.112.20
         pihole_clients_server:
           hosts:
-            10.10.112.30:
+            10.10.112.30

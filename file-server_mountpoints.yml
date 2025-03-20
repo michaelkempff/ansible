@@ -1,0 +1,77 @@
+---
+- name: Configure file server mount points
+  hosts: file_server
+  become: true  # Run with sudo privileges
+
+  tasks:
+    - name: Create required directories (excluding Btrfs-managed paths)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /srv/nvme  # Base for NVMe subvolumes
+        - /srv/hdd   # Base for HDD subvolumes
+        - /srv/nfs   # Base for NFS bind mounts
+        - /srv/nfs/backup
+        - /srv/nfs/container-server
+        - /srv/nfs/infra-server
+        - /srv/nfs/nextcloud-server
+
+    - name: Mount Btrfs subvolumes (NVMe Partition)
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        src: "UUID=19583b5d-8c79-4f16-b902-153124679f5e"
+        fstype: btrfs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop:
+        - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/container-server", opts: "subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/infra-server", opts: "subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/nextcloud-server", opts: "subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+
+    - name: Mount Btrfs subvolumes (HDD Partition)
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        src: "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c"
+        fstype: btrfs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop:
+        - { path: "/srv/hdd", opts: "subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/backup", opts: "subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+
+    - name: Bind mount directories
+      ansible.builtin.mount:
+        path: "{{ item.dest }}"
+        src: "{{ item.src }}"
+        fstype: none
+        opts: "bind"
+        state: mounted
+      loop:
+        - { src: "/srv/nvme/backup", dest: "/srv/nfs/backup" }
+        - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
+        - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server" }
+        - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server" }
+
+    - name: Ensure all mounts are persistent in /etc/fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/backup btrfs subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/container-server btrfs subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/nextcloud-server btrfs subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd btrfs subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/backup btrfs subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
+        - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
+        - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
+        - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
