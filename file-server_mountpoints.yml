@@ -97,7 +97,7 @@
         - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
         - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
         - "/srv/hdd/pbs_important /srv/nfs/pbs_important none bind 0 0"
-        - "/srv/hdd/pbs_important /srv/nfs/pbs_important none bind 0 0"
+        - "/srv/hdd/pbs_test /srv/nfs/pbs_test none bind 0 0"
        
     - name: Install required packages (NFS & Firewalld)
       ansible.builtin.apt:
@@ -113,7 +113,12 @@
         enabled: yes
         state: started
 
-    - name: Create Firewalld zones (Persistent)
+    - name: Check existing Firewalld zones
+      ansible.builtin.command: "firewall-cmd --get-zones"
+      register: firewalld_existing_zones
+      changed_when: false
+
+    - name: Create Firewalld zones if missing
       ansible.builtin.command:
         cmd: "firewall-cmd --permanent --new-zone={{ item }}"
       loop:
@@ -122,7 +127,8 @@
         - pve-host
         - nextcloud
         - infra
-      ignore_errors: yes  # Ignore errors if zones already exist
+      when: "item not in firewalld_existing_zones.stdout_lines"
+      changed_when: true
 
     - name: Bind interfaces to Firewalld zones
       ansible.builtin.command:
