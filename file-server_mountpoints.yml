@@ -88,4 +88,16 @@
         - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
         - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
         - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
+       
+    - name: Install NFS server package
+      ansible.builtin.apt:
+        name: nfs-kernel-server
+        state: present
+        update_cache: yes
+     
+    - name: Install Firewalld package
+      ansible.builtin.apt:
+        name: firewalld
+        state: present
+        update_cache: yes
 
