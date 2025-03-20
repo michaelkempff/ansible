@@ -199,6 +199,7 @@
           /srv/nfs/pbs_important 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/container-server 10.15.112.42(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
