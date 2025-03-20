@@ -114,21 +114,22 @@
         state: started
 
     - name: Check existing Firewalld zones
-      ansible.builtin.command: firewall-cmd --get-zones
+      ansible.builtin.command: "firewall-cmd --get-zones"
       register: firewalld_existing_zones
       changed_when: false
 
     - name: Create Firewalld zones if missing
-      ansible.builtin.command:
-        cmd: "firewall-cmd --permanent --new-zone={{ item }}"
+      ansible.builtin.firewalld:
+        zone: "{{ item }}"
+        permanent: yes
+        state: present
       loop:
         - servers
         - 10G
         - pve-host
         - nextcloud
         - infra
-      when: "item not in firewalld_existing_zones.stdout_lines"
-      changed_when: true
+      when: "item not in firewalld_existing_zones.stdout"
 
     - name: Bind interfaces to Firewalld zones
       ansible.builtin.firewalld:
