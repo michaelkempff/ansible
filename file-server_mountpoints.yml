@@ -19,6 +19,8 @@
         - /srv/nfs/container-server
         - /srv/nfs/infra-server
         - /srv/nfs/nextcloud-server
+        - /srv/nfs/srv_pbs_important
+        - /srv/nfs/pbs_test
 
     - name: Mount Btrfs subvolumes (NVMe Partition)
       ansible.builtin.mount:
@@ -44,6 +46,8 @@
       loop:
         - { path: "/srv/hdd", opts: "subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
         - { path: "/srv/hdd/backup", opts: "subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/pbs_important", opts: "@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/pbs_test", opts: "@srv_pbs_test,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
 
     - name: Mount Btrfs root partitions
       ansible.builtin.mount:
@@ -68,6 +72,8 @@
         - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
         - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server" }
         - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server" }
+        - { src: "/srv/hdd/pbs_important", dest: "/srv/nfs/pbs_important"}
+        - { src: "/srv/hdd/pbs_test", dest: "/srv/nfs/pbs_test"}
 
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
@@ -138,4 +144,34 @@
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
+    
+    - name: Ensure NFS service is running and enabled
+      ansible.builtin.systemd:
+        name: nfs-server
+        enabled: yes
+        state: started
+
+    - name: Define NFS exports
+      ansible.builtin.blockinfile:
+        path: /etc/exports
+        block: |
+          /srv/nfs/backup       10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/infra-server 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/nextcloud-server 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pbs_important 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+      notify:
+        - Restart NFS
+
+    - name: Export NFS shares
+      ansible.builtin.command: exportfs -ra
+      changed_when: false
+
+  handlers:
+    - name: Restart NFS
+      ansible.builtin.systemd:
+        name: nfs-server
+        state: restarted
+
 
