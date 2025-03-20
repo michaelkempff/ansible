@@ -114,7 +114,7 @@
         state: started
 
     - name: Check existing Firewalld zones
-      ansible.builtin.command: "firewall-cmd --get-zones"
+      ansible.builtin.command: firewall-cmd --get-zones
       register: firewalld_existing_zones
       changed_when: false
 
@@ -131,8 +131,12 @@
       changed_when: true
 
     - name: Bind interfaces to Firewalld zones
-      ansible.builtin.command:
-        cmd: "firewall-cmd --permanent --zone={{ item.zone }} --add-interface={{ item.interface }}"
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        interface: "{{ item.interface }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
       loop:
         - { zone: "servers", interface: "eth0" }
         - { zone: "10G", interface: "eth1" }
@@ -140,9 +144,13 @@
         - { zone: "nextcloud", interface: "eth3" }
         - { zone: "infra", interface: "eth4" }
 
-    - name: Allow required services in Firewalld zones (Persistent)
-      ansible.builtin.command:
-        cmd: "firewall-cmd --permanent --zone={{ item.zone }} --add-service={{ item.service }}"
+    - name: Allow required services in Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        service: "{{ item.service }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "nfs" }
