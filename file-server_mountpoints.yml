@@ -21,6 +21,8 @@
         - /srv/nfs/nextcloud-server
         - /srv/nfs/srv_pbs_important
         - /srv/nfs/pbs_test
+        - /srv/nfs/container-server
+        - /srv/nfs/ncbackup
 
     - name: Mount Btrfs subvolumes (NVMe Partition)
       ansible.builtin.mount:
@@ -35,6 +37,8 @@
         - { path: "/srv/nvme/container-server", opts: "subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/infra-server", opts: "subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/nextcloud-server", opts: "subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/container-server", opts: "subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/ncbackup", opts: "subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
     - name: Mount Btrfs subvolumes (HDD Partition)
       ansible.builtin.mount:
@@ -86,6 +90,8 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/container-server btrfs subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/nextcloud-server btrfs subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/container-server btrfs subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/ncbackup btrfs subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd btrfs subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/backup btrfs subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/pbs_important btrfs subvol=@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
@@ -98,6 +104,8 @@
         - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
         - "/srv/hdd/pbs_important /srv/nfs/pbs_important none bind 0 0"
         - "/srv/hdd/pbs_test /srv/nfs/pbs_test none bind 0 0"
+        - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
+        - "/srv/nvme/ncbackup /srv/nfs/ncbackup none bind 0 0"
        
     - name: Install required packages (NFS & Firewalld)
       ansible.builtin.apt:
@@ -129,6 +137,7 @@
         - pve-host
         - nextcloud
         - infra
+        - containers
       when: "item not in firewalld_existing_zones.stdout"
 
     - name: Bind interfaces to Firewalld zones
@@ -144,6 +153,7 @@
         - { zone: "pve-host", interface: "eth2" }
         - { zone: "nextcloud", interface: "eth3" }
         - { zone: "infra", interface: "eth4" }
+        - { zone: "containers", interface: "eth5" }
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -159,6 +169,7 @@
         - { zone: "pve-host", service: "nfs" }
         - { zone: "nextcloud", service: "nfs" }
         - { zone: "infra", service: "nfs" }
+        - { zone: "containers", service: "nfs" }
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
@@ -174,11 +185,13 @@
       ansible.builtin.blockinfile:
         path: /etc/exports
         block: |
-          /srv/nfs/backup       10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/backup 10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/infra-server 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/nextcloud-server 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/ncbackup 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pbs_important 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/container-server 10.15.112.42(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify:
         - Restart NFS if needed
@@ -194,6 +207,6 @@
         state: restarted
       when: "'/etc/exports' is changed"
 
-    
+
 
 
