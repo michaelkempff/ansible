@@ -1,5 +1,5 @@
 - name: Install and Configure Pi-hole with Unbound using Docker
-  hosts: pihole_clients_server
+  hosts: all
   become: yes
   vars:
     docker_user: "michael"
@@ -15,7 +15,7 @@
       apt:
         name:
           - docker.io
-          - docker-compose
+          - docker-compose-plugin
           - git
         state: present
 
@@ -25,10 +25,10 @@
         groups: docker
         append: yes
 
-    - name: Enable and start Docker service
+    - name: Enable and restart Docker service
       systemd:
         name: docker
-        state: started
+        state: restarted
         enabled: yes
 
     - name: Create Docker Compose directory
@@ -43,7 +43,7 @@
       copy:
         dest: "{{ compose_dir }}/docker-compose.yml"
         content: |
-          version: '3'
+          version: '3.8'
 
           services:
             pihole:
@@ -56,9 +56,11 @@
                 - "10.11.112.30:443:443/tcp"
               environment:
                 TZ: "Europe/Amsterdam"
-                WEBPASSWORD: "kashmir02"  # Change this to a secure password
+                WEBPASSWORD: "supersecret"  # Change this to a secure password
                 DNS1: "127.0.0.1#5335"
                 DNS2: "8.8.8.8"  # Backup public DNS
+                VIRTUAL_HOST: "pi.hole"
+                PIHOLE_DNS_: "127.0.0.1#5335"
               volumes:
                 - "./pihole:/etc/pihole"
                 - "./dnsmasq:/etc/dnsmasq.d"
@@ -88,8 +90,15 @@
         group: "{{ docker_user }}"
         mode: '0644'
 
+    - name: Ensure correct ownership for Docker directory
+      file:
+        path: "{{ compose_dir }}"
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        recurse: yes
+
     - name: Start Pi-hole and Unbound containers
-      command: docker-compose up -d
+      command: docker compose up -d
       args:
         chdir: "{{ compose_dir }}"
 
