@@ -46,8 +46,8 @@
       loop:
         - { path: "/srv/hdd", opts: "subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
         - { path: "/srv/hdd/backup", opts: "subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        - { path: "/srv/hdd/pbs_important", opts: "@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        - { path: "/srv/hdd/pbs_test", opts: "@srv_pbs_test,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/pbs_important", opts: "subvol=@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/pbs_test", opts: "subvol=@srv_pbs_test,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
 
     - name: Mount Btrfs root partitions
       ansible.builtin.mount:
