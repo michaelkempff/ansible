@@ -200,20 +200,17 @@
           /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/container-server 10.15.112.42(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
-      notify:
-        - Restart NFS if needed
+      notify: Restart NFS
 
     - name: Export NFS shares
       ansible.builtin.command: exportfs -ra
       changed_when: false
 
   handlers:
-    - name: Restart NFS if needed
+    - name: Restart NFS
       ansible.builtin.systemd:
         name: nfs-server
         state: restarted
-      when: "'/etc/exports' is changed"
-
 
 
 
