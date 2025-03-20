@@ -1,6 +1,6 @@
 ---
 - name: Install and Configure Pi-hole with Unbound
-  hosts: pihole
+  hosts: pihole_clients_server
   become: yes
   vars:
     pihole_password: "kashmir02"  # Change to your desired password
