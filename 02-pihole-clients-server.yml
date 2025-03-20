@@ -124,6 +124,9 @@
       args:
         chdir: "{{ compose_dir }}"
 
+    - name: Set Pi-hole web interface password
+      command: docker exec -it pihole pihole -a -p "supersecret"    
+
     - name: Display Pi-hole web interface URL
       debug:
         msg: "Pi-hole is running at http://{{ ansible_host }}/admin"
