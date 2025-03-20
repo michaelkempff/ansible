@@ -1,5 +1,5 @@
 ---
-- name: Configure file server mount points
+- name: Configure file server
   hosts: file_server
   become: true  # Run with sudo privileges
 
@@ -24,7 +24,7 @@
         - /srv/nfs/container-server
         - /srv/nfs/ncbackup
 
-    - name: Mount Btrfs subvolumes (NVMe Partition)
+    - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
         path: "{{ item.path }}"
         src: "UUID=19583b5d-8c79-4f16-b902-153124679f5e"
@@ -40,7 +40,7 @@
         - { path: "/srv/nvme/container-server", opts: "subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/ncbackup", opts: "subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
-    - name: Mount Btrfs subvolumes (HDD Partition)
+    - name: Mount Btrfs subvolumes (HDD RAID10 Drive)
       ansible.builtin.mount:
         path: "{{ item.path }}"
         src: "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c"
@@ -76,6 +76,8 @@
         - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
         - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server" }
         - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server" }
+        - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
+        - { src: "/srv/nvme/ncbackup", dest: "/srv/nfs/ncbackup" }
         - { src: "/srv/hdd/pbs_important", dest: "/srv/nfs/pbs_important"}
         - { src: "/srv/hdd/pbs_test", dest: "/srv/nfs/pbs_test"}
 
