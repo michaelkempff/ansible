@@ -1,5 +1,5 @@
 - name: Install and Configure Pi-hole with Unbound using Docker
-  hosts: all
+  hosts: pihole_clients_server
   become: yes
   vars:
     docker_user: "michael"
@@ -56,7 +56,7 @@
                 - "10.11.112.30:443:443/tcp"
               environment:
                 TZ: "Europe/Amsterdam"
-                WEBPASSWORD: "supersecret"  # Change this to a secure password
+                WEBPASSWORD: "kashmir02"  # Change this to a secure password
                 DNS1: "127.0.0.1#5335"
                 DNS2: "8.8.8.8"  # Backup public DNS
               volumes:
