@@ -142,6 +142,11 @@
         - containers
       when: "item not in firewalld_existing_zones.stdout"
 
+    - name: Reload Firewalld to apply new zones
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
+      changed_when: false 
+       
     - name: Bind interfaces to Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
