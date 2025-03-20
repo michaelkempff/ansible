@@ -103,42 +103,39 @@
         enabled: yes
         state: started
 
-    - name: Create and configure Firewalld zones
+    - name: Create Firewalld zones (Persistent)
+      ansible.builtin.command:
+        cmd: "firewall-cmd --permanent --new-zone={{ item }}"
       loop:
-        - { zone: "servers", interface: "eth0", services: ["ssh", "nfs"] }
-        - { zone: "10G", interface: "eth1", services: ["nfs"] }
-        - { zone: "pve-host", interface: "eth2", services: ["nfs"] }
-        - { zone: "nextcloud", interface: "eth3", services: ["nfs"] }
-        - { zone: "infra", interface: "eth4", services: ["nfs"] }
-      loop_control:
-        loop_var: firewalld_zone
+        - servers
+        - 10G
+        - pve-host
+        - nextcloud
+        - infra
+      ignore_errors: yes  # Ignore errors if zones already exist
 
-      block:
-        - name: Create Firewalld zone {{ firewalld_zone.zone }}
-          ansible.builtin.command:
-            cmd: "firewall-cmd --permanent --new-zone={{ firewalld_zone.zone }}"
-          register: result
-          changed_when: "'ALREADY_ENABLED' not in result.stderr"
-          failed_when: result.rc != 0 and 'ZONE_ALREADY_SET' not in result.stderr
+    - name: Bind interfaces to Firewalld zones
+      ansible.builtin.command:
+        cmd: "firewall-cmd --permanent --zone={{ item.zone }} --add-interface={{ item.interface }}"
+      loop:
+        - { zone: "servers", interface: "eth0" }
+        - { zone: "10G", interface: "eth1" }
+        - { zone: "pve-host", interface: "eth2" }
+        - { zone: "nextcloud", interface: "eth3" }
+        - { zone: "infra", interface: "eth4" }
 
-        - name: Bind interface {{ firewalld_zone.interface }} to zone {{ firewalld_zone.zone }}
-          ansible.builtin.command:
-            cmd: "firewall-cmd --permanent --zone={{ firewalld_zone.zone }} --add-interface={{ firewalld_zone.interface }}"
-          register: result
-          changed_when: "'ALREADY_ENABLED' not in result.stderr"
-          failed_when: result.rc != 0
-
-        - name: Allow services in zone {{ firewalld_zone.zone }}
-          ansible.builtin.command:
-            cmd: "firewall-cmd --permanent --zone={{ firewalld_zone.zone }} --add-service={{ item }}"
-          loop: "{{ firewalld_zone.services }}"
-          register: result
-          changed_when: "'ALREADY_ENABLED' not in result.stderr"
-          failed_when: result.rc != 0
+    - name: Allow required services in Firewalld zones (Persistent)
+      ansible.builtin.command:
+        cmd: "firewall-cmd --permanent --zone={{ item.zone }} --add-service={{ item.service }}"
+      loop:
+        - { zone: "servers", service: "ssh" }
+        - { zone: "servers", service: "nfs" }
+        - { zone: "10G", service: "nfs" }
+        - { zone: "pve-host", service: "nfs" }
+        - { zone: "nextcloud", service: "nfs" }
+        - { zone: "infra", service: "nfs" }
 
     - name: Reload Firewalld to apply changes
-      ansible.builtin.command: firewall-cmd --reload
-      changed_when: false
-     
-    
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
 
