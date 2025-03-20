@@ -1,132 +1,104 @@
 ---
-- name: Install and Configure Pi-hole with Unbound using Docker
-  hosts: pihole_clients_server
+- name: Install and Configure Pi-hole with Unbound
+  hosts: pihole
   become: yes
   vars:
-    docker_user: "michael"
-    compose_dir: "/home/michael/docker"
+    pihole_password: "kashmir02"  # Change to your desired password
+    dns_interface: "eth1"  # Interface for DNS resolution
+    web_interface: "eth2"  # Interface for Pi-hole Web UI
+    upstream_dns: "127.0.0.1#5335"
 
   tasks:
-    - name: Install required system packages
-      apt:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - gnupg
-          - lsb-release
-        state: present
 
-    - name: Add Docker GPG key
-      apt_key:
-        url: https://download.docker.com/linux/debian/gpg
-        state: present
-
-    - name: Add Docker repository (using Debian Bookworm)
-      apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable"
-        state: present
-        filename: docker
-
-    - name: Update package list
+    - name: Update package cache and install dependencies
       apt:
         update_cache: yes
-
-    - name: Install Docker and Docker Compose
-      apt:
         name:
-          - docker-ce
-          - docker-ce-cli
-          - containerd.io
-          - docker-compose-plugin
+          - curl
+          - git
+          - apt-transport-https
+          - ca-certificates
+          - unbound
         state: present
 
-    - name: Add user to Docker group
-      user:
-        name: "{{ docker_user }}"
-        groups: docker
-        append: yes
-
-    - name: Enable and restart Docker service
-      systemd:
-        name: docker
-        state: restarted
-        enabled: yes
-
-    - name: Create Docker Compose directory
-      file:
-        path: "{{ compose_dir }}"
-        state: directory
-        owner: "{{ docker_user }}"
-        group: "{{ docker_user }}"
-        mode: '0755'
-
-    - name: Deploy Docker Compose file for Pi-hole and Unbound
-      copy:
-        dest: "{{ compose_dir }}/docker-compose.yml"
-        content: |
-          version: '3.8'
-
-          services:
-            pihole:
-              container_name: pihole
-              image: pihole/pihole:latest
-              ports:
-                - "10.10.116.30:53:53/tcp"
-                - "10.10.116.30:53:53/udp"
-                - "10.11.112.30:80:80/tcp"
-                - "10.11.112.30:443:443/tcp"
-              environment:
-                TZ: "Europe/Amsterdam"
-                WEBPASSWORD: kashmir02
-                DNS1: "127.0.0.1#5335"
-                DNS2: "8.8.8.8"  # Backup public DNS
-                VIRTUAL_HOST: "pi.hole"
-                PIHOLE_DNS_: "127.0.0.1#5335"
-              volumes:
-                - "./pihole:/etc/pihole"
-                - "./dnsmasq:/etc/dnsmasq.d"
-              restart: unless-stopped
-              networks:
-                dns_net:
-                  ipv4_address: 192.168.1.2
-
-            unbound:
-              container_name: unbound
-              image: mvance/unbound:latest
-              restart: unless-stopped
-              networks:
-                dns_net:
-                  ipv4_address: 192.168.1.3
-              ports:
-                - "5335:5335/tcp"
-
-          networks:
-            dns_net:
-              driver: bridge
-              ipam:
-                config:
-                  - subnet: 192.168.1.0/24
-
-        owner: "{{ docker_user }}"
-        group: "{{ docker_user }}"
-        mode: '0644'
-
-    - name: Ensure correct ownership for Docker directory
-      file:
-        path: "{{ compose_dir }}"
-        owner: "{{ docker_user }}"
-        group: "{{ docker_user }}"
-        recurse: yes
-
-    - name: Start Pi-hole and Unbound containers
-      command: docker compose up -d
+    - name: Download and install Pi-hole
+      shell: curl -sSL https://install.pi-hole.net | bash
       args:
-        chdir: "{{ compose_dir }}"
+        creates: /etc/pihole/setupVars.conf
+      register: pihole_install
+      changed_when: "'Pi-hole blocking is enabled' in pihole_install.stdout"
 
-    - name: Set Pi-hole web interface password
-      command: docker exec -it pihole pihole -a -p "supersecret"    
+    - name: Configure Pi-hole settings
+      template:
+        src: setupVars.j2
+        dest: /etc/pihole/setupVars.conf
+      notify: Restart Pi-hole
 
-    - name: Display Pi-hole web interface URL
-      debug:
-        msg: "Pi-hole is running at http://{{ ansible_host }}/admin"
+    - name: Configure Unbound for Recursive DNS Resolving
+      copy:
+        dest: /etc/unbound/unbound.conf.d/pi-hole.conf
+        content: |
+          server:
+            verbosity: 1
+            interface: 127.0.0.1
+            port: 5335
+            do-ip4: yes
+            do-udp: yes
+            do-tcp: yes
+            root-hints: "/var/lib/unbound/root.hints"
+            harden-glue: yes
+            harden-dnssec-stripped: yes
+            use-caps-for-id: no
+            edns-buffer-size: 1232
+            cache-min-ttl: 3600
+            cache-max-ttl: 86400
+            prefetch: yes
+            num-threads: 4
+            so-rcvbuf: 1m
+            so-sndbuf: 1m
+      notify: Restart Unbound
+
+    - name: Download Root Hints for Unbound
+      get_url:
+        url: https://www.internic.net/domain/named.cache
+        dest: /var/lib/unbound/root.hints
+        mode: '0644'
+      notify: Restart Unbound
+
+    - name: Ensure Pi-hole uses Unbound as upstream DNS
+      lineinfile:
+        path: /etc/pihole/setupVars.conf
+        regexp: '^PIHOLE_DNS_1='
+        line: "PIHOLE_DNS_1={{ upstream_dns }}"
+      notify: Restart Pi-hole
+
+    - name: Set Pi-hole DNS server to listen on eth1
+      lineinfile:
+        path: /etc/dnsmasq.d/01-pihole.conf
+        regexp: '^interface='
+        line: "interface={{ dns_interface }}"
+      notify: Restart Pi-hole
+
+    - name: Configure Lighttpd to listen on eth2 for web interface
+      copy:
+        dest: /etc/lighttpd/external.conf
+        content: |
+          server.bind = "{{ web_interface }}"
+      notify: Restart Lighttpd
+
+    - name: Set Admin Password for Pi-hole
+      shell: pihole -a -p "{{ pihole_password }}"
+
+  handlers:
+    - name: Restart Pi-hole
+      command: pihole restartdns
+
+    - name: Restart Unbound
+      systemd:
+        name: unbound
+        state: restarted
+
+    - name: Restart Lighttpd
+      systemd:
+        name: lighttpd
+        state: restarted
