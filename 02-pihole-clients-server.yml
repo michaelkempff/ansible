@@ -56,7 +56,7 @@
                 - "10.11.112.30:443:443/tcp"
               environment:
                 TZ: "Europe/Amsterdam"
-                WEBPASSWORD: "4985Kashmir!!"  # Change this to a secure password
+                WEBPASSWORD: "supersecret"  # Change this to a secure password
                 DNS1: "127.0.0.1#5335"
                 DNS2: "8.8.8.8"  # Backup public DNS
               volumes:
