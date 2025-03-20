@@ -1,5 +1,5 @@
 - name: Install and Configure Pi-hole with Unbound using Docker
-  hosts: all
+  hosts: pihole_clients_server
   become: yes
   vars:
     docker_user: "michael"
