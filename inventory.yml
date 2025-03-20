@@ -2,12 +2,12 @@ all:
   children:
     servers:
       children:
-        proxmox_host:
+        pve_server:
           hosts:
             10.10.112.10:
-        file-server:
+        file_server:
           hosts:
             10.10.112.20:
-        pihole-clients-server:
+        pihole_clients_server:
           hosts:
             10.10.112.30:
