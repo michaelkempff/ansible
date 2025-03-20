@@ -89,15 +89,56 @@
         - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
         - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
        
-    - name: Install NFS server package
+    - name: Install required packages (NFS & Firewalld)
       ansible.builtin.apt:
-        name: nfs-kernel-server
+        name:
+          - nfs-kernel-server
+          - firewalld
         state: present
         update_cache: yes
-     
-    - name: Install Firewalld package
-      ansible.builtin.apt:
+
+    - name: Ensure Firewalld is running and enabled
+      ansible.builtin.systemd:
         name: firewalld
-        state: present
-        update_cache: yes
+        enabled: yes
+        state: started
+
+    - name: Create and configure Firewalld zones
+      loop:
+        - { zone: "servers", interface: "eth0", services: ["ssh", "nfs"] }
+        - { zone: "10G", interface: "eth1", services: ["nfs"] }
+        - { zone: "pve-host", interface: "eth2", services: ["nfs"] }
+        - { zone: "nextcloud", interface: "eth3", services: ["nfs"] }
+        - { zone: "infra", interface: "eth4", services: ["nfs"] }
+      loop_control:
+        loop_var: firewalld_zone
+
+      block:
+        - name: Create Firewalld zone {{ firewalld_zone.zone }}
+          ansible.builtin.command:
+            cmd: "firewall-cmd --permanent --new-zone={{ firewalld_zone.zone }}"
+          register: result
+          changed_when: "'ALREADY_ENABLED' not in result.stderr"
+          failed_when: result.rc != 0 and 'ZONE_ALREADY_SET' not in result.stderr
+
+        - name: Bind interface {{ firewalld_zone.interface }} to zone {{ firewalld_zone.zone }}
+          ansible.builtin.command:
+            cmd: "firewall-cmd --permanent --zone={{ firewalld_zone.zone }} --add-interface={{ firewalld_zone.interface }}"
+          register: result
+          changed_when: "'ALREADY_ENABLED' not in result.stderr"
+          failed_when: result.rc != 0
+
+        - name: Allow services in zone {{ firewalld_zone.zone }}
+          ansible.builtin.command:
+            cmd: "firewall-cmd --permanent --zone={{ firewalld_zone.zone }} --add-service={{ item }}"
+          loop: "{{ firewalld_zone.services }}"
+          register: result
+          changed_when: "'ALREADY_ENABLED' not in result.stderr"
+          failed_when: result.rc != 0
+
+    - name: Reload Firewalld to apply changes
+      ansible.builtin.command: firewall-cmd --reload
+      changed_when: false
+     
+    
 
