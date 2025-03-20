@@ -1,0 +1,98 @@
+- name: Install and Configure Pi-hole with Unbound using Docker
+  hosts: all
+  become: yes
+  vars:
+    docker_user: "michael"
+    compose_dir: "/home/michael/docker"
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install Docker and dependencies
+      apt:
+        name:
+          - docker.io
+          - docker-compose
+          - git
+        state: present
+
+    - name: Add user to docker group
+      user:
+        name: "{{ docker_user }}"
+        groups: docker
+        append: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Create Docker Compose directory
+      file:
+        path: "{{ compose_dir }}"
+        state: directory
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0755'
+
+    - name: Deploy Docker Compose file for Pi-hole and Unbound
+      copy:
+        dest: "{{ compose_dir }}/docker-compose.yml"
+        content: |
+          version: '3'
+
+          services:
+            pihole:
+              container_name: pihole
+              image: pihole/pihole:latest
+              ports:
+                - "10.10.116.30:53:53/tcp"
+                - "10.10.116.30:53:53/udp"
+                - "10.11.112.30:80:80/tcp"
+                - "10.11.112.30:443:443/tcp"
+              environment:
+                TZ: "Europe/Amsterdam"
+                WEBPASSWORD: "4985Kashmir!!"  # Change this to a secure password
+                DNS1: "127.0.0.1#5335"
+                DNS2: "8.8.8.8"  # Backup public DNS
+              volumes:
+                - "./pihole:/etc/pihole"
+                - "./dnsmasq:/etc/dnsmasq.d"
+              restart: unless-stopped
+              networks:
+                dns_net:
+                  ipv4_address: 192.168.1.2
+
+            unbound:
+              container_name: unbound
+              image: mvance/unbound:latest
+              restart: unless-stopped
+              networks:
+                dns_net:
+                  ipv4_address: 192.168.1.3
+              ports:
+                - "5335:5335/tcp"
+
+          networks:
+            dns_net:
+              driver: bridge
+              ipam:
+                config:
+                  - subnet: 192.168.1.0/24
+
+        owner: "{{ docker_user }}"
+        group: "{{ docker_user }}"
+        mode: '0644'
+
+    - name: Start Pi-hole and Unbound containers
+      command: docker-compose up -d
+      args:
+        chdir: "{{ compose_dir }}"
+
+    - name: Display Pi-hole web interface URL
+      debug:
+        msg: "Pi-hole is running at http://{{ ansible_host }}/admin"
