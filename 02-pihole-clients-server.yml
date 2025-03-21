@@ -14,19 +14,24 @@
           - lsb-release
         state: present
         update_cache: yes
-
-    - name: Download Docker GPG key
+    
+    - name: Download Docker GPG key (ASCII format)
       ansible.builtin.get_url:
         url: https://download.docker.com/linux/debian/gpg
-        dest: /usr/share/keyrings/docker-archive-keyring.gpg
+        dest: /tmp/docker.gpg
         mode: '0644'
-
-    - name: Add Docker apt repository (signed-by method)
+    
+    - name: Convert Docker GPG key to binary format
+      ansible.builtin.command:
+        cmd: "gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg /tmp/docker.gpg"
+        creates: /usr/share/keyrings/docker-archive-keyring.gpg
+    
+    - name: Add Docker apt repository with signed-by
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian bookworm stable"
         state: present
         filename: docker
-
+         
     - name: Update apt cache
       apt:
         update_cache: yes
