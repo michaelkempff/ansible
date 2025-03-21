@@ -1,100 +1,88 @@
 ---
-- name: Install and Configure Pi-hole with Unbound
-  hosts: pihole_clients_server
+- name: Install Pihole Clients Server
+  hosts: all
   become: yes
-  vars:
-    dns_interface: "eth1"  # Interface for DNS resolution
-    web_interface: "eth2"  # Interface for Pi-hole Web UI
-    upstream_dns: "127.0.0.1#5335"
-
   tasks:
 
-    - name: Update package cache and install dependencies
+    - name: Install required packages
       apt:
-        update_cache: yes
         name:
-          - curl
-          - git
           - apt-transport-https
           - ca-certificates
-          - unbound
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker’s official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
         state: present
 
-    - name: Download Pi-hole installer
-      get_url:
-        url: https://install.pi-hole.net
-        dest: /root/install_pihole.sh
-        mode: '0755'
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
 
-    - name: Run Pi-hole install script interactively
-      shell: /root/install_pihole.sh
-      args:
-        executable: /bin/bash
-      register: pihole_output
-      changed_when: "'Pi-hole blocking is enabled' in pihole_output.stdout"
+    - name: Update apt cache
+      apt:
+        update_cache: yes
 
-    - name: Configure Pi-hole to use Unbound as upstream DNS
-      lineinfile:
-        path: /etc/pihole/setupVars.conf
-        regexp: '^PIHOLE_DNS_1='
-        line: "PIHOLE_DNS_1={{ upstream_dns }}"
-      notify: Restart Pi-hole
+    - name: Install Docker CE
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: latest
 
-    - name: Set Pi-hole DNS service to listen on eth1
-      lineinfile:
-        path: /etc/dnsmasq.d/01-pihole.conf
-        regexp: '^interface='
-        line: "interface={{ dns_interface }}"
-      notify: Restart Pi-hole
-
-    - name: Configure Unbound for Recursive DNS Resolving
-      copy:
-        dest: /etc/unbound/unbound.conf.d/pi-hole.conf
-        content: |
-          server:
-            verbosity: 1
-            interface: 127.0.0.1
-            port: 5335
-            do-ip4: yes
-            do-udp: yes
-            do-tcp: yes
-            root-hints: "/var/lib/unbound/root.hints"
-            harden-glue: yes
-            harden-dnssec-stripped: yes
-            use-caps-for-id: no
-            edns-buffer-size: 1232
-            cache-min-ttl: 3600
-            cache-max-ttl: 86400
-            prefetch: yes
-            num-threads: 4
-            so-rcvbuf: 1m
-            so-sndbuf: 1m
-      notify: Restart Unbound
-
-    - name: Download Root Hints for Unbound
-      get_url:
-        url: https://www.internic.net/domain/named.cache
-        dest: /var/lib/unbound/root.hints
-        mode: '0644'
-      notify: Restart Unbound
-
-    - name: Configure Lighttpd to listen on eth2 for the web interface
-      copy:
-        dest: /etc/lighttpd/external.conf
-        content: |
-          server.bind = "{{ web_interface }}"
-      notify: Restart Lighttpd
-
-  handlers:
-    - name: Restart Pi-hole
-      command: pihole restartdns
-
-    - name: Restart Unbound
+    - name: Enable and start Docker service
       systemd:
-        name: unbound
-        state: restarted
+        name: docker
+        enabled: yes
+        state: started
 
-    - name: Restart Lighttpd
-      systemd:
-        name: lighttpd
-        state: restarted
+    - name: Install required packages (NFS & Firewalld)
+      ansible.builtin.apt:
+        name:
+          - nfs-kernel-server
+          - firewalld
+        state: present
+        update_cache: yes
+
+    - name: Ensure Firewalld is running and enabled
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: yes
+        state: started
+
+    - name: Check existing Firewalld zones
+      ansible.builtin.command: "firewall-cmd --get-zones"
+      register: firewalld_existing_zones
+      changed_when: false
+
+    - name: Create Firewalld zones if missing
+      ansible.builtin.firewalld:
+        zone: "{{ item }}"
+        permanent: yes
+        state: present
+      loop:
+        - servers
+        - 10G
+        - containers
+
+    - name: Bind interfaces to Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        interface: "{{ item.interface }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", interface: "eth0" }
+        - { zone: "10G", interface: "eth1" }
+        - { zone: "containers", interface: "eth2" }
+
+        
