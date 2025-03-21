@@ -128,3 +128,16 @@
         opts: nofail,_netdev,auto,nfsvers=4.1,rsize=1048576,wsize=1048576,timeo=900,retrans=3
         state: present
     
+    - name: Ensure user 'michael' is part of 'docker' group
+      user:
+        name: michael
+        groups: docker
+        append: yes
+
+    - name: Create /home/michael/docker directory with proper ownership
+      file:
+        path: /home/michael/docker
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
