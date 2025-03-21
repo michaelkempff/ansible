@@ -1,6 +1,6 @@
 ---
 - name: Install Pihole Clients Server
-  hosts: all
+  hosts: pihole_clients_server
   become: yes
   tasks:
 
@@ -26,7 +26,7 @@
         repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
         state: present
         filename: docker
-        
+
     - name: Update apt cache
       apt:
         update_cache: yes
