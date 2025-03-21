@@ -111,7 +111,7 @@
     
     - name: Ensure mount point for NFS share exists
       file:
-        path: /mnt/pihole-clients
+        path: /srv/pihole-clients
         state: directory
         owner: root
         group: root
