@@ -44,10 +44,9 @@
         enabled: yes
         state: started
 
-    - name: Install required packages (NFS & Firewalld)
+    - name: Install required packages (Firewalld)
       ansible.builtin.apt:
         name:
-          - nfs-kernel-server
           - firewalld
         state: present
         update_cache: yes
@@ -85,4 +84,21 @@
         - { zone: "10G", interface: "eth1" }
         - { zone: "containers", interface: "eth2" }
 
-        
+    - name: Allow required services in Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        service: "{{ item.service }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", service: "ssh" }
+        - { zone: "10G", service: "dns" }
+        - { zone: "10G", service: "dhcp" }
+        - { zone: "10G", service: "ntp" }
+        - { zone: "containers", service: "http" }
+        - { zone: "containers", service: "https" }
+    
+    - name: Reload Firewalld to apply changes
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
