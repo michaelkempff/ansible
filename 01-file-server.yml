@@ -84,8 +84,8 @@
         - { src: "/srv/nvme/ncbackup", dest: "/srv/nfs/ncbackup" }
         - { src: "/srv/hdd/pbs_important", dest: "/srv/nfs/pbs_important"}
         - { src: "/srv/hdd/pbs_test", dest: "/srv/nfs/pbs_test"}
-        - { src: "/srv/srv_nvme_pihole-clients", dest: "/srv/nfs/pihole-clients"}
-        - { src: "/srv/srv_nvme_pihole-servers", dest: "/srv/nfs/pihole-servers"}
+        - { src: "/srv/nvme/pihole-clients", dest: "/srv/nfs/pihole-clients"}
+        - { src: "/srv/nvme/pihole-servers", dest: "/srv/nfs/pihole-servers"}
 
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
