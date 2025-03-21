@@ -44,10 +44,11 @@
         enabled: yes
         state: started
 
-    - name: Install required packages (Firewalld)
+    - name: Install required packages (Firewalld and NFS Client)
       ansible.builtin.apt:
         name:
           - firewalld
+          - nfs-common
         state: present
         update_cache: yes
 
@@ -102,3 +103,28 @@
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
+    
+    - name: Ensure mount point for NFS share exists
+      file:
+        path: /mnt/pihole-clients
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Mount NFS share
+      mount:
+        src: "10.10.112.20:/srv/nfs/pihole-clients"
+        path: /mnt/pihole-clients
+        fstype: nfs
+        opts: nofail,_netdev,auto,nfsvers=4.1,rsize=1048576,wsize=1048576,timeo=900,retrans=3
+        state: mounted
+
+    - name: Make NFS mount persistent in fstab
+      mount:
+        src: "10.10.112.20:/srv/nfs/pihole-clients"
+        path: /mnt/pihole-clients
+        fstype: nfs
+        opts: nofail,_netdev,auto,nfsvers=4.1,rsize=1048576,wsize=1048576,timeo=900,retrans=3
+        state: present
+    
