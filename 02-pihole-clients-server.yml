@@ -4,40 +4,39 @@
   become: yes
   tasks:
 
-    - name: Install required packages
+    - name: Install required system packages
       apt:
         name:
-          - apt-transport-https
           - ca-certificates
           - curl
           - gnupg
           - lsb-release
         state: present
         update_cache: yes
-              
-    - name: Create keyring directory for APT if not exists
+
+    - name: Create APT keyrings directory
       file:
         path: /etc/apt/keyrings
         state: directory
         mode: '0755'
-                       
-    - name: Download Docker GPG key and convert to binary format
+
+    - name: Download Docker GPG key and save in binary format
       shell: |
         curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
       args:
         creates: /etc/apt/keyrings/docker.gpg
-                         
-    - name: Add Docker apt repository
+
+    - name: Add Docker APT repository
       apt_repository:
         repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable"
-        state: present
         filename: docker
-                               
-    - name: Update apt cache
+        state: present
+
+    - name: Update apt cache after adding Docker repo
       apt:
         update_cache: yes
 
-    - name: Install Docker CE
+    - name: Install Docker Engine
       apt:
         name:
           - docker-ce
