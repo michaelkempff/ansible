@@ -6,9 +6,6 @@ all:
   children:
     servers:
       children:
-        pve_server:
-          hosts:
-            10.10.112.10
         file_server:
           hosts:
             10.10.112.20
