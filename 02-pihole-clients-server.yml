@@ -38,6 +38,14 @@
           - containerd.io
         state: latest
 
+    - name: Remove docker0 from firewalld zones (cleanup)
+      ansible.builtin.shell: |
+        firewall-cmd --permanent --remove-interface=docker0 || true
+        firewall-cmd --reload
+      args:
+        executable: /bin/bash
+      ignore_errors: yes    
+
     - name: Enable and start Docker service
       systemd:
         name: docker
@@ -139,14 +147,6 @@
         groups: docker
         append: yes
 
-    - name: Create /home/michael/docker directory with proper ownership
-      file:
-        path: /home/michael/docker
-        state: directory
-        owner: michael
-        group: michael
-        mode: '0755'
-
     - name: Get Docker bridge interfaces (docker0 + br-*)
       ansible.builtin.shell: |
         ip -o link show | awk -F': ' '{print $2}' | grep -E '^docker0|^br-'
@@ -161,7 +161,8 @@
         immediate: yes
         state: enabled
       loop: "{{ docker_bridge_interfaces.stdout_lines | reject('equalto', 'docker0') | list }}"
-      when: docker_bridge_interfaces.stdout_lines | length > 0
+      when: docker_bridge_interfaces.stdout_lines is defined and docker_bridge_interfaces.stdout_lines | length > 0
+
                             
     - name: Reload Firewalld one last time
       ansible.builtin.command:
