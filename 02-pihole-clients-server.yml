@@ -152,17 +152,17 @@
         ip -o link show | awk -F': ' '{print $2}' | grep -E '^docker0|^br-'
       register: docker_bridge_interfaces
       changed_when: false
-
-    - name: Assign Docker bridge interfaces to 'trusted' firewalld zone
+              
+    - name: Assign custom Docker bridge interfaces (br-*) to 'trusted' firewalld zone
       ansible.builtin.firewalld:
         zone: trusted
         interface: "{{ item }}"
         permanent: yes
         immediate: yes
         state: enabled
-      loop: "{{ docker_bridge_interfaces.stdout_lines }}"
+      loop: "{{ docker_bridge_interfaces.stdout_lines | reject('equalto', 'docker0') | list }}"
       when: docker_bridge_interfaces.stdout_lines | length > 0
-
+                            
     - name: Reload Firewalld one last time
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
