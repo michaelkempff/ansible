@@ -123,11 +123,12 @@
         - "/srv/nvme/pihole-clients /srv/nfs/pihole-clients none bind 0 0"
         - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
        
-    - name: Install required packages (NFS & Firewalld)
+    - name: Install required packages
       ansible.builtin.apt:
         name:
           - nfs-kernel-server
           - firewalld
+          - git
         state: present
         update_cache: yes
 
