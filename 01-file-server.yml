@@ -228,6 +228,14 @@
     - name: Display public SSH key for michael
       debug:
         msg: "{{ michael_public_key.content | b64decode }}"
+
+    - name: Create /home/michael/build directory with proper ownership
+      file:
+        path: /home/michael/build
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
     
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
