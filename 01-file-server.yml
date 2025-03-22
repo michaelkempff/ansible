@@ -126,7 +126,7 @@
         - "/srv/nvme/ncbackup /srv/nfs/ncbackup none bind 0 0"
         - "/srv/nvme/pihole-clients /srv/nfs/pihole-clients none bind 0 0"
         - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
-        - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
+        - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
        
     - name: Install required packages
       ansible.builtin.apt:
