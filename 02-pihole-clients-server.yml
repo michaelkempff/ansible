@@ -67,6 +67,7 @@
           - firewalld
           - nfs-common
           - rsync
+          - neofetch
         state: present
         update_cache: yes
 
