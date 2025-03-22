@@ -134,6 +134,7 @@
           - nfs-kernel-server
           - firewalld
           - git
+          - rsync
         state: present
         update_cache: yes
 
