@@ -164,6 +164,30 @@
         group: michael
         mode: '0755'
 
+    - name: Add custom aliases to .bashrc for root and michael
+      become: yes
+      copy:
+        dest: "/{{ item }}/.bashrc"
+        content: |
+          {{ lookup('file', '/{{ item }}/.bashrc', errors='ignore') | default('') }}
+              
+          # Added by Ansible
+          alias ll='ls -la'
+          alias gs='git status'
+          alias dcu='docker-compose up -d'
+          alias c='clear'
+          alias h='history'
+          alias ls='ls -alh --color=auto'
+          alias df='df -h'
+          alias ports='ss -tulpn'
+
+        owner: "{{ item }}"
+        group: "{{ item }}"
+        mode: '0644'
+      loop:
+        - root
+        - home/michael
+
     - name: Get Docker bridge interfaces (docker0 + br-*)
       ansible.builtin.shell: |
         ip -o link show | awk -F': ' '{print $2}' | grep -E '^docker0|^br-'
