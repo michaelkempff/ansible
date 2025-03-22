@@ -237,29 +237,31 @@
         group: michael
         mode: '0755'
 
-    - name: Add custom aliases to .bashrc for root and michael
-      become: yes
-      copy:
-        dest: "/{{ item }}/.bashrc"
-        content: |
-          {{ lookup('file', '/{{ item }}/.bashrc', errors='ignore') | default('') }}
-              
-          # Added by Ansible
-          alias ll='ls -la'
-          alias gs='git status'
-          alias dcu='docker-compose up -d'
-          alias c='clear'
-          alias h='history'
-          alias ls='ls -alh --color=auto'
-          alias df='df -h'
-          alias ports='ss -tulpn'
-
-        owner: "{{ item }}"
-        group: "{{ item }}"
+    - name: Ensure aliases are present in .bashrc for root and michael
+      ansible.builtin.lineinfile:
+        path: "{{ item.bashrc }}"
+        line: "{{ item.alias }}"
+        create: yes
+        owner: "{{ item.user }}"
+        group: "{{ item.user }}"
         mode: '0644'
+        insertafter: EOF
       loop:
-        - root
-        - home/michael
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias dcu='docker-compose up -d'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias dcu='docker-compose up -d'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='alias ls='ls -alh --color=auto'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
     
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:

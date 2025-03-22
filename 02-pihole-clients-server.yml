@@ -174,12 +174,21 @@
         mode: '0644'
         insertafter: EOF
       loop:
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ll='ls -la'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias dcu='docker-compose up -d'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ll='ls -la'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias dcu='docker-compose up -d'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='alias ls='ls -alh --color=auto'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
 
     - name: Get Docker bridge interfaces (docker0 + br-*)
       ansible.builtin.shell: |
