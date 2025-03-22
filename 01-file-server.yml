@@ -135,6 +135,7 @@
           - firewalld
           - git
           - rsync
+          - neofetch
         state: present
         update_cache: yes
 
