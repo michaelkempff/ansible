@@ -61,11 +61,12 @@
         enabled: yes
         state: started
 
-    - name: Install required packages (Firewalld and NFS Client)
+    - name: Install required packages
       ansible.builtin.apt:
         name:
           - firewalld
           - nfs-common
+          - rsync
         state: present
         update_cache: yes
 
