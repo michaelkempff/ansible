@@ -2,6 +2,10 @@
 - name: Configure file server
   hosts: file_server
   become: true  # Run with sudo privileges
+  vars_prompt:
+    - name: "ssh_key_passphrase"
+      prompt: "Enter SSH key passphrase for user michael (leave blank for no passphrase)"
+      private: yes
 
   tasks:
     - name: Create required directories (excluding Btrfs-managed paths)
@@ -191,6 +195,39 @@
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
+
+    - name: Check if SSH private key exists for user michael
+      ansible.builtin.stat:
+        path: /home/michael/.ssh/id_rsa
+      register: michael_ssh_key
+
+    - name: Create .ssh directory for michael (if needed)
+      file:
+        path: /home/michael/.ssh
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0700'
+
+    - name: Generate SSH key for michael if it doesn't exist
+      become_user: michael
+      community.crypto.openssh_keypair:
+        path: /home/michael/.ssh/id_rsa
+        type: rsa
+        size: 4096
+        passphrase: "{{ ssh_key_passphrase }}"
+        comment: "michael@{{ inventory_hostname }}"
+      when: not michael_ssh_key.stat.exists
+
+    - name: Read public SSH key
+      slurp:
+        src: /home/michael/.ssh/id_rsa.pub
+      register: michael_public_key
+      become_user: michael
+
+    - name: Display public SSH key for michael
+      debug:
+        msg: "{{ michael_public_key.content | b64decode }}"
     
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
