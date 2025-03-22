@@ -29,6 +29,7 @@
         - /srv/nfs/ncbackup
         - /srv/nfs/pihole-clients
         - /srv/nfs/pihole-servers
+        - /srv/nfs/iso
 
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -47,6 +48,7 @@
         - { path: "/srv/nvme/ncbackup", opts: "subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/pihole-clients", opts: "subvol=@srv_nvme_pihole-clients,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/pihole-servers", opts: "subvol=@srv_nvme_pihole-servers,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
     - name: Mount Btrfs subvolumes (HDD RAID10 Drive)
       ansible.builtin.mount:
@@ -90,6 +92,7 @@
         - { src: "/srv/hdd/pbs_test", dest: "/srv/nfs/pbs_test"}
         - { src: "/srv/nvme/pihole-clients", dest: "/srv/nfs/pihole-clients"}
         - { src: "/srv/nvme/pihole-servers", dest: "/srv/nfs/pihole-servers"}
+        - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
 
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
@@ -106,6 +109,7 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/ncbackup btrfs subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/pihole-clients btrfs subvol=@srv_nvme_pihole-clients,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/pihole-servers btrfs subvol=@srv_nvme_pihole-servers,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd btrfs subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/backup btrfs subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/pbs_important btrfs subvol=@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
@@ -121,6 +125,7 @@
         - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
         - "/srv/nvme/ncbackup /srv/nfs/ncbackup none bind 0 0"
         - "/srv/nvme/pihole-clients /srv/nfs/pihole-clients none bind 0 0"
+        - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
         - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
        
     - name: Install required packages
@@ -284,6 +289,7 @@
           /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pihole-clients 10.10.112.30(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pihole-servers 10.10.112.31(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/iso 10.10.112.10(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
