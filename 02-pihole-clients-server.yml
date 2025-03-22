@@ -44,7 +44,16 @@
         firewall-cmd --reload
       args:
         executable: /bin/bash
-      ignore_errors: yes    
+      ignore_errors: yes
+
+    - name: Configure Docker to use btrfs storage driver
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {  
+            "storage-driver": "btrfs"
+          }
+        mode: '0644'    
 
     - name: Enable and start Docker service
       systemd:
@@ -147,6 +156,14 @@
         groups: docker
         append: yes
 
+    - name: Create /home/michael/docker directory with proper ownership
+      file:
+        path: /home/michael/docker
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
+
     - name: Get Docker bridge interfaces (docker0 + br-*)
       ansible.builtin.shell: |
         ip -o link show | awk -F': ' '{print $2}' | grep -E '^docker0|^br-'
@@ -162,9 +179,8 @@
         state: enabled
       loop: "{{ docker_bridge_interfaces.stdout_lines | reject('equalto', 'docker0') | list }}"
       when: docker_bridge_interfaces.stdout_lines is defined and docker_bridge_interfaces.stdout_lines | length > 0
-
                             
-    - name: Reload Firewalld one last time
+    - name: Reload Firewalld
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
       changed_when: false
