@@ -194,11 +194,23 @@
       loop:
         - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "nfs" }
+        - { zone: "servers", service: "mountd" }
+        - { zone: "servers", service: "rpc-bind" }
         - { zone: "10G", service: "nfs" }
+        - { zone: "10G", service: "mountd" }
+        - { zone: "10G", service: "rpc-bind" }
         - { zone: "pve-host", service: "nfs" }
+        - { zone: "pve-host", service: "mountd" }
+        - { zone: "pve-host", service: "rpc-bind" }
         - { zone: "nextcloud", service: "nfs" }
+        - { zone: "nextcloud", service: "mountd" }
+        - { zone: "nextcloud", service: "rpc-bind" }
         - { zone: "infra", service: "nfs" }
+        - { zone: "infra", service: "mountd" }
+        - { zone: "infra", service: "rpc-bind" }
         - { zone: "containers", service: "nfs" }
+        - { zone: "containers", service: "mountd" }
+        - { zone: "containers", service: "rpc-bind" }
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
