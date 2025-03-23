@@ -357,8 +357,7 @@
           [statd]
           port=32765
           udp-port=32765
-      notify: Restart NFS services
-
+      notify: Restart NFS
 
   handlers:
     - name: Restart NFS
