@@ -301,14 +301,12 @@
         insertafter: EOF
       loop:
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias dcu='docker-compose up -d'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias dcu='docker-compose up -d'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history" }
@@ -343,6 +341,24 @@
     - name: Export NFS shares
       ansible.builtin.command: exportfs -ra
       changed_when: false
+
+    - name: Set fixed ports for NFS services in /etc/nfs.conf
+      ansible.builtin.blockinfile:
+        path: /etc/nfs.conf
+        marker: "# {mark} ANSIBLE MANAGED NFS PORTS"
+        block: |
+          [mountd]
+          port=20048
+
+          [lockd]
+          port=32767
+          udp-port=32767
+
+          [statd]
+          port=32765
+          udp-port=32765
+      notify: Restart NFS services
+
 
   handlers:
     - name: Restart NFS
