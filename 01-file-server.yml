@@ -212,6 +212,39 @@
         - { zone: "containers", service: "mountd" }
         - { zone: "containers", service: "rpc-bind" }
 
+    - name: Open required ports in Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        port: "{{ item.port }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", port: "32767/tcp" }
+        - { zone: "servers", port: "32767/udp" }
+        - { zone: "servers", port: "32765/tcp" }
+        - { zone: "servers", port: "32765/udp" }
+        - { zone: "10G", port: "32767/tcp" }
+        - { zone: "10G", port: "32767/udp" }
+        - { zone: "10G", port: "32765/tcp" }
+        - { zone: "10G", port: "32765/udp" }
+        - { zone: "pve-host", port: "32767/tcp" }
+        - { zone: "pve-host", port: "32767/udp" }
+        - { zone: "pve-host", port: "32765/tcp" }
+        - { zone: "pve-host", port: "32765/udp" }
+        - { zone: "nextcloud", port: "32767/tcp" }
+        - { zone: "nextcloud", port: "32767/udp" }
+        - { zone: "nextcloud", port: "32765/tcp" }
+        - { zone: "nextcloud", port: "32765/udp" }
+        - { zone: "infra", port: "32767/tcp" }
+        - { zone: "infra", port: "32767/udp" }
+        - { zone: "infra", port: "32765/tcp" }
+        - { zone: "infra", port: "32765/udp" }
+        - { zone: "containers", port: "32767/tcp" }
+        - { zone: "containers", port: "32767/udp" }
+        - { zone: "containers", port: "32765/tcp" }
+        - { zone: "containers", port: "32765/udp" }
+
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
