@@ -1,6 +1,6 @@
 ---
-- name: Install Pihole Server Server
-  hosts: pihole_server_server
+- name: Install Pihole Servers Server
+  hosts: pihole_servers_server
   become: yes
   tasks:
 
