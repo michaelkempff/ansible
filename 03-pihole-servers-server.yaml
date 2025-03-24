@@ -1,0 +1,212 @@
+---
+- name: Install Pihole Server Server
+  hosts: pihole_server_server
+  become: yes
+  tasks:
+
+    - name: Install required packages
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+        update_cache: yes
+
+    - name: Add Docker’s official GPG key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+        filename: docker
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Docker CE
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: latest
+
+    - name: Remove docker0 from firewalld zones (cleanup)
+      ansible.builtin.shell: |
+        firewall-cmd --permanent --remove-interface=docker0 || true
+        firewall-cmd --reload
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Configure Docker to use btrfs storage driver
+      copy:
+        dest: /etc/docker/daemon.json
+        content: |
+          {  
+            "storage-driver": "btrfs"
+          }
+        mode: '0644'    
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - firewalld
+          - nfs-common
+          - rsync
+          - neofetch
+        state: present
+        update_cache: yes
+
+    - name: Ensure Firewalld is running and enabled
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: yes
+        state: started
+
+    - name: Check existing Firewalld zones
+      ansible.builtin.command: "firewall-cmd --get-zones"
+      register: firewalld_existing_zones
+      changed_when: false
+
+    - name: Create Firewalld zones if missing
+      ansible.builtin.firewalld:
+        zone: "{{ item }}"
+        permanent: yes
+        state: present
+      loop:
+        - servers
+        - containers
+
+    - name: Reload Firewalld to apply new zones
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
+      changed_when: false 
+
+    - name: Bind interfaces to Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        interface: "{{ item.interface }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", interface: "eth0" }
+        - { zone: "containers", interface: "eth1" }
+
+    - name: Allow required services in Firewalld zones
+      ansible.builtin.firewalld:
+        zone: "{{ item.zone }}"
+        service: "{{ item.service }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", service: "ssh" }
+        - { zone: "servers", service: "dns" }
+        - { zone: "servers", service: "dhcp" }
+        - { zone: "servers", service: "ntp" }
+        - { zone: "containers", service: "http" }
+        - { zone: "containers", service: "https" }
+    
+    - name: Reload Firewalld to apply changes
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
+    
+    - name: Ensure mount point for NFS share exists
+      file:
+        path: /srv/pihole-servers
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Mount NFS share
+      mount:
+        src: "10.10.112.20:/srv/nfs/pihole-servers"
+        path: /mnt/pihole-servers
+        fstype: nfs
+        opts: nofail,_netdev,auto,nfsvers=4.1,rsize=1048576,wsize=1048576,timeo=900,retrans=3
+        state: mounted
+
+    - name: Make NFS mount persistent in fstab
+      mount:
+        src: "10.10.112.20:/srv/nfs/pihole-servers"
+        path: /mnt/pihole-servers
+        fstype: nfs
+        opts: nofail,_netdev,auto,nfsvers=4.1,rsize=1048576,wsize=1048576,timeo=900,retrans=3
+        state: present
+    
+    - name: Ensure user 'michael' is part of 'docker' group
+      user:
+        name: michael
+        groups: docker
+        append: yes
+
+    - name: Create /home/michael/docker directory with proper ownership
+      file:
+        path: /home/michael/docker
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
+
+    - name: Ensure aliases are present in .bashrc for root and michael
+      ansible.builtin.lineinfile:
+        path: "{{ item.bashrc }}"
+        line: "{{ item.alias }}"
+        create: yes
+        owner: "{{ item.user }}"
+        group: "{{ item.user }}"
+        mode: '0644'
+        insertafter: EOF
+      loop:
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias dcu='docker-compose up -d'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias dcu='docker-compose up -d'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='alias ls='ls -alh --color=auto'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
+
+    - name: Get Docker bridge interfaces (docker0 + br-*)
+      ansible.builtin.shell: |
+        ip -o link show | awk -F': ' '{print $2}' | grep -E '^docker0|^br-'
+      register: docker_bridge_interfaces
+      changed_when: false
+              
+    - name: Assign custom Docker bridge interfaces (br-*) to 'trusted' firewalld zone
+      ansible.builtin.firewalld:
+        zone: trusted
+        interface: "{{ item }}"
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop: "{{ docker_bridge_interfaces.stdout_lines | reject('equalto', 'docker0') | list }}"
+      when: docker_bridge_interfaces.stdout_lines is defined and docker_bridge_interfaces.stdout_lines | length > 0
+                            
+    - name: Reload Firewalld
+      ansible.builtin.command:
+        cmd: "firewall-cmd --reload"
+      changed_when: false
