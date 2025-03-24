@@ -12,3 +12,6 @@ all:
         pihole_clients_server:
           hosts:
             10.10.112.30
+        pihole_servers_server:
+          hosts:
+            10.10.112.31    
