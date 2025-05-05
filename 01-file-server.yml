@@ -30,6 +30,7 @@
         - /srv/nfs/pihole-clients
         - /srv/nfs/pihole-servers
         - /srv/nfs/iso
+        - /srv/nfs/container-images
 
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -49,6 +50,7 @@
         - { path: "/srv/nvme/pihole-clients", opts: "subvol=@srv_nvme_pihole-clients,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/pihole-servers", opts: "subvol=@srv_nvme_pihole-servers,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/container-images", opts: "subvol=@srv_nvme_container-images,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
     - name: Mount Btrfs subvolumes (HDD RAID10 Drive)
       ansible.builtin.mount:
