@@ -2,14 +2,8 @@ all:
   vars:
     ansible_user: michael
     ansible_ssh_private_key_file: ~/.ssh/id_ed25519
-
+  
   children:
-    debian_servers_managed:
-      children:
-        file_server:
-          hosts:
-            10.10.112.20
-    
     pve_servers_unmanaged:
       children:
         pve_server:
@@ -17,17 +11,46 @@ all:
             10.10.112.10
         pve-workstation:
           hosts:
-             10.10.112.11        
-
-
-
-
-
-
-
-        #pihole_clients_server:
-          #hosts:
-            #10.10.112.30
-        #pihole_servers_server:
-          #hosts:
-            #10.10.112.31    
+            10.10.112.11
+    debian_servers_managed:
+      children:
+        file_server:
+          hosts:
+            10.10.112.20
+    debian_servers_unmanaged:
+      children:
+        infra2_server:
+          hosts:
+            10.10.112.22
+    fedora_iot_servers_managed:
+      children:
+        pihole_clients_server:
+          hosts:
+            10.10.112.30
+        pihole_servers_server:
+          hosts:
+            10.10.112.31     
+        infra-server:
+          hosts:
+            10.10.112.33
+        nextcloud-server:
+          hosts:
+            10.10.112.34
+        container-server:
+          hosts:
+            10.10.112.35
+    fedora_workstations_managed:
+      children:
+        michael-workstation:
+          hosts:
+            10.10.112.50
+    laptops_unmanaged:
+      children:
+        michael-laptop:
+          hosts:
+            10.10.112.51
+    fedora_workstations_unmanaged:
+      children:
+        management-vm:
+          hosts:
+            10.10.112.55
