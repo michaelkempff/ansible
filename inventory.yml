@@ -12,6 +12,7 @@ all:
             10.10.112.20
     
     fedora_servers:
+      children:
         infra-server:
           hosts:
             10.10.112.30
