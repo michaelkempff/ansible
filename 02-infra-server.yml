@@ -36,7 +36,7 @@
       loop:
         - servers
         - 10G
-        - infra
+        - file-server
         - containers
       when: "item not in firewalld_existing_zones.stdout"
 
@@ -55,7 +55,7 @@
       loop:
         - { zone: "servers", interface: "eth0" }
         - { zone: "10G", interface: "eth1" }
-        - { zone: "nfs", interface: "eth3" }
+        - { zone: "file-server", interface: "eth3" }
         - { zone: "containers", interface: "eth2" }
 
     - name: Allow required services in Firewalld zones
@@ -73,7 +73,6 @@
         - { zone: "10G", service: "dns" }
         - { zone: "10G", service: "dhcp" }
         - { zone: "10G", service: "ntp" }
-        - { zone: "nfs", service: "nfs" }
         - { zone: "containers", service: "http" }
         - { zone: "containers", service: "https" }
 
