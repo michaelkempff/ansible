@@ -1,0 +1,61 @@
+---
+- name: Configure Fedora UKI infra server
+  hosts: infra_server
+  become: true
+
+  tasks:
+    - name: Install required packages
+      ansible.builtin.dnf:
+        name:
+          - htop
+          - iotop
+          - strace
+          - lsof
+          - mc
+          - firewalld
+          - nfs-utils
+        state: present
+        update_cache: true
+
+    - name: Ensure Firewalld is running and enabled
+      ansible.builtin.systemd:
+        name: firewalld
+        enabled: yes
+        state: started
+
+    - name: Create podman mount directory
+      ansible.builtin.file:
+        path: /home/michael/podman
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
+
+    - name: Mount NFS share for Podman
+      ansible.posix.mount:
+        path: /home/michael/podman
+        src: 10.10.112.20:/srv/nfs/infra-server
+        fstype: nfs
+        opts: noatime,_netdev,vers=4.2,context=system_u:object_r:container_file_t:s0
+        state: mounted
+
+    - name: Ensure NFS mount is persistent in /etc/fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "10.10.112.20:/srv/nfs/infra-server /home/michael/podman nfs noatime,_netdev,vers=4.2,context=system_u:object_r:container_file_t:s0 0 0"
+        state: present
+
+    - name: Ensure michael owns the mounted NFS directory
+      ansible.builtin.command: chown -R michael:michael /home/michael/podman
+      args:
+        warn: false
+
+    - name: Apply SELinux context for Podman data dir
+      community.general.sefcontext:
+        target: '/home/michael/podman(/.*)?'
+        setype: container_file_t
+        state: present
+
+    - name: Restore SELinux context on /home/michael/podman
+      ansible.builtin.command: "restorecon -Rv /home/michael/podman"
+      changed_when: true
