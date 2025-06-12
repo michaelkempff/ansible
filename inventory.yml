@@ -11,7 +11,7 @@ all:
           hosts:
             10.10.112.20
     
-    fedora_servers:
+    centos_servers:
       children:
         infra_server:
           hosts:

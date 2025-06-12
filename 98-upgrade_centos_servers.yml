@@ -1,5 +1,5 @@
-- name: Upgrade all Fedora servers
-  hosts: fedora_servers
+- name: Upgrade all CentOS servers
+  hosts: centos_servers
   become: true  # Run as root
 
   tasks:
