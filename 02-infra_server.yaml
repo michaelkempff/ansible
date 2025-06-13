@@ -17,7 +17,7 @@
           - lsof
           - mc
           - firewalld
-          - nfs-utils
+          - nfs-common
           - podman
           - auditd
           - apparmor-utils
@@ -101,128 +101,28 @@
         state: present
         reload: yes
     
-
-    - name: Redirect port 53 to 8053 tcp (DNS pihole-servers)
+    - name: Redirect common ports for rootless podman
       ansible.posix.firewalld:
-        zone: servers
+        zone: "{{ item.zone }}"
         forward_port:
-          port: 53
-          protocol: tcp
-          to_port: 8053
+          port: "{{ item.src_port }}"
+          protocol: "{{ item.protocol }}"
+          to_port: "{{ item.dst_port }}"
           to_addr: ""
         permanent: yes
         immediate: yes
         state: enabled
-    
-    - name: Redirect port 53 to 8053 udp (DNS pihole-servers)
-      ansible.posix.firewalld:
-        zone: servers
-        forward_port:
-          port: 53
-          protocol: udp
-          to_port: 8053
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled
-
-    - name: Redirect port 67 to 8067 tcp (DHCP pihole-servers)
-      ansible.posix.firewalld:
-        zone: servers
-        forward_port:
-          port: 67
-          protocol: tcp
-          to_port: 8067
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled
-
-    - name: Redirect port 67 to 8067 udp (DHCP pihole-servers)
-      ansible.posix.firewalld:
-        zone: servers
-        forward_port:
-          port: 67
-          protocol: udp
-          to_port: 8067
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled 
-
-    - name: Redirect port 123 to 8123 udp (NTP pihole-servers)
-      ansible.posix.firewalld:
-        zone: servers
-        forward_port:
-          port: 123
-          protocol: udp
-          to_port: 8123
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled 
-    
-
-    - name: Redirect port 53 to 8053 tcp (DNS pihole-clients)
-      ansible.posix.firewalld:
-        zone: 10G
-        forward_port:
-          port: 53
-          protocol: tcp
-          to_port: 8053
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled
-
-    - name: Redirect port 53 to 8053 udp (DNS pihole-clients)
-      ansible.posix.firewalld:
-        zone: 10G
-        forward_port:
-          port: 53
-          protocol: udp
-          to_port: 8053
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled
-
-    - name: Redirect port 67 to 8067 tcp (DHCP pihole-clients)
-      ansible.posix.firewalld:
-        zone: 10G
-        forward_port:
-          port: 67
-          protocol: tcp
-          to_port: 8067
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled
-
-    - name: Redirect port 67 to 8067 udp (DHCP pihole-clients)
-      ansible.posix.firewalld:
-        zone: 10G
-        forward_port:
-          port: 67
-          protocol: udp
-          to_port: 8067
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled 
-
-    - name: Redirect port 123 to 8123 udp (NTP pihole-clients)
-      ansible.posix.firewalld:
-        zone: 10G
-        forward_port:
-          port: 123
-          protocol: udp
-          to_port: 8123
-          to_addr: ""
-        permanent: yes
-        immediate: yes
-        state: enabled 
-        
+      loop:
+        - { zone: "servers", src_port: 53,  protocol: "tcp", to_port: 8053 }
+        - { zone: "servers", src_port: 53,  protocol: "udp", to_port: 8053 }
+        - { zone: "servers", src_port: 67,  protocol: "tcp", to_port: 8067 }
+        - { zone: "servers", src_port: 67,  protocol: "udp", to_port: 8067 }
+        - { zone: "servers", src_port: 123, protocol: "udp", to_port: 8123 }
+        - { zone: "10G",    src_port: 53,  protocol: "tcp", to_port: 8053 }
+        - { zone: "10G",    src_port: 53,  protocol: "udp", to_port: 8053 }
+        - { zone: "10G",    src_port: 67,  protocol: "tcp", to_port: 8067 }
+        - { zone: "10G",    src_port: 67,  protocol: "udp", to_port: 8067 }
+        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }        
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
