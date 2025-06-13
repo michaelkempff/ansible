@@ -1,6 +1,10 @@
 - name: Install infra-server
   hosts: infra_server
   become: yes
+  
+  vars_files:
+  - infra_server_vars.yml
+
   tasks:
 
     - name: Install required packages
@@ -133,6 +137,7 @@
         create_home: true
         password: "{{ podman_password_hash }}" 
         key: "{{ podman_ssh_pubkey }}"
+
     - name: Mount NFS share for Podman
       ansible.posix.mount:
         path: /home/podman/data
