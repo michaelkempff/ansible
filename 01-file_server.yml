@@ -334,15 +334,13 @@
         path: /etc/exports
         block: |
           /srv/nfs/backup 10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/infra-server 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/infra-server 10.14.112.30(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/nextcloud-server 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/ncbackup 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pbs_important 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/container-server 10.15.112.42(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.55(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/pihole-clients 10.10.112.30(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/pihole-servers 10.10.112.31(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/iso 10.10.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.11(rw,sync,no_subtree_check,no_root_squash) 10.10.112.50(rw,sync,no_subtree_check,no_root_squash) 10.10.112.51(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/container-images 10.10.112.50(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
