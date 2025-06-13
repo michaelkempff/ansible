@@ -124,14 +124,15 @@
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
 
-    - name: Ensure user 'podman' exists with home directory and bash shell
+    - name: Ensure user 'podman' exists with a specific password
       ansible.builtin.user:
         name: podman
         shell: /bin/bash
         home: /home/podman
         state: present
-        create_home: true    
-
+        create_home: true
+        password: "{{ podman_password_hash }}" 
+        key: "{{ podman_ssh_pubkey }}"
     - name: Mount NFS share for Podman
       ansible.posix.mount:
         path: /home/podman/data

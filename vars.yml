@@ -1,1 +1,2 @@
 podman_password_hash: "$6$FN/7NSRsRJOtrkQO$Y9BFTpYIDZ8AKz0clsEzZ6Emla.O6xg6iAgxcxLfkc86Hw/oUWDlTcnpDLXG/qzwr6eu5vOF5f6gqZXb11Mza0"
+podman_ssh_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaO0im4N8eEB2LiqldIsbm6HRjAnCE1MN4QMzL5viX5 michael@michael-workstation"
