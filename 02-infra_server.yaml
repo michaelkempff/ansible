@@ -147,10 +147,8 @@
         state: present
     
     - name: Ensure podman owns the mounted NFS directory
-      ansible.builtin.command: chown -R podman:podman /home/podman/data
-      args:
-        warn: false
-
+      ansible.builtin.command:
+        cmd: chown -R podman:podman /home/podman/data
 
 
 
