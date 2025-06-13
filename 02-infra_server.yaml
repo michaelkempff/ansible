@@ -136,6 +136,11 @@
         state: present
         create_home: true
         password: "{{ podman_password_hash }}" 
+        
+    - name: Ensure podman has authorized SSH key
+      ansible.posix.authorized_key:
+        user: podman
+        state: present
         key: "{{ podman_ssh_pubkey }}"
 
     - name: Mount NFS share for Podman
