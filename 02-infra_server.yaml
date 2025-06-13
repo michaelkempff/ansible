@@ -1,12 +1,16 @@
----
-- name: Configure Fedora UKI infra server
+- name: Install infra-server
   hosts: infra_server
-  become: true
-
+  become: yes
   tasks:
+
     - name: Install required packages
-      ansible.builtin.dnf:
+      apt:
         name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
           - htop
           - iotop
           - strace
@@ -14,8 +18,12 @@
           - mc
           - firewalld
           - nfs-utils
+          - podman
+          - auditd
+          - apparmor-utils
+          - apparmor-profiles
         state: present
-        update_cache: true
+        update_cache: yes
 
     - name: Ensure Firewalld is running and enabled
       ansible.builtin.systemd:
@@ -73,9 +81,7 @@
         - { zone: "10G", service: "dns" }
         - { zone: "10G", service: "dhcp" }
         - { zone: "10G", service: "ntp" }
-        - { zone: "containers", service: "http" }
-        - { zone: "containers", service: "https" }
-
+        
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -94,34 +100,72 @@
         sysctl_set: yes
         state: present
         reload: yes
+    
 
-    - name: Redirect port 80 to 8080 
+    - name: Redirect port 53 to 8053 tcp (DNS pihole-servers)
       ansible.posix.firewalld:
-        zone: containers
+        zone: servers
         forward_port:
-          port: 80
+          port: 53
           protocol: tcp
-          to_port: 8080
+          to_port: 8053
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled
+    
+    - name: Redirect port 53 to 8053 udp (DNS pihole-servers)
+      ansible.posix.firewalld:
+        zone: servers
+        forward_port:
+          port: 53
+          protocol: udp
+          to_port: 8053
           to_addr: ""
         permanent: yes
         immediate: yes
         state: enabled
 
-    - name: Redirect port 443 to 8443 
+    - name: Redirect port 67 to 8067 tcp (DHCP pihole-servers)
       ansible.posix.firewalld:
-        zone: containers
+        zone: servers
         forward_port:
-          port: 443
+          port: 67
           protocol: tcp
-          to_port: 8443
+          to_port: 8067
           to_addr: ""
         permanent: yes
         immediate: yes
         state: enabled
 
-    - name: Redirect port 53 to 8053 
+    - name: Redirect port 67 to 8067 udp (DHCP pihole-servers)
       ansible.posix.firewalld:
-        zone: containers
+        zone: servers
+        forward_port:
+          port: 67
+          protocol: udp
+          to_port: 8067
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled 
+
+    - name: Redirect port 123 to 8123 udp (NTP pihole-servers)
+      ansible.posix.firewalld:
+        zone: servers
+        forward_port:
+          port: 123
+          protocol: udp
+          to_port: 8123
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled 
+    
+
+    - name: Redirect port 53 to 8053 tcp (DNS pihole-clients)
+      ansible.posix.firewalld:
+        zone: 10G
         forward_port:
           port: 53
           protocol: tcp
@@ -131,9 +175,21 @@
         immediate: yes
         state: enabled
 
-    - name: Redirect port 67 to 8067
+    - name: Redirect port 53 to 8053 udp (DNS pihole-clients)
       ansible.posix.firewalld:
-        zone: containers
+        zone: 10G
+        forward_port:
+          port: 53
+          protocol: udp
+          to_port: 8053
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled
+
+    - name: Redirect port 67 to 8067 tcp (DHCP pihole-clients)
+      ansible.posix.firewalld:
+        zone: 10G
         forward_port:
           port: 67
           protocol: tcp
@@ -142,44 +198,63 @@
         permanent: yes
         immediate: yes
         state: enabled
-      
+
+    - name: Redirect port 67 to 8067 udp (DHCP pihole-clients)
+      ansible.posix.firewalld:
+        zone: 10G
+        forward_port:
+          port: 67
+          protocol: udp
+          to_port: 8067
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled 
+
+    - name: Redirect port 123 to 8123 udp (NTP pihole-clients)
+      ansible.posix.firewalld:
+        zone: 10G
+        forward_port:
+          port: 123
+          protocol: udp
+          to_port: 8123
+          to_addr: ""
+        permanent: yes
+        immediate: yes
+        state: enabled 
+        
+
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
 
-    - name: Create podman mount directory
-      ansible.builtin.file:
-        path: /home/michael/podman
-        state: directory
-        owner: michael
-        group: michael
-        mode: '0755'
+    - name: Ensure user 'podman' exists with home directory and bash shell
+      ansible.builtin.user:
+        name: podman
+        shell: /bin/bash
+        home: /home/podman
+        state: present
+        create_home: true    
 
     - name: Mount NFS share for Podman
       ansible.posix.mount:
-        path: /home/michael/podman
+        path: /home/podman/data
         src: 10.14.112.20:/srv/nfs/infra-server
         fstype: nfs
-        opts: noatime,_netdev,vers=4.2,context=system_u:object_r:container_file_t:s0
+        opts: noatime,_netdev,vers=4.2
         state: mounted
 
     - name: Ensure NFS mount is persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "10.14.112.20:/srv/nfs/infra-server /home/michael/podman nfs noatime,_netdev,vers=4.2,context=system_u:object_r:container_file_t:s0 0 0"
+        line: "10.14.112.20:/srv/nfs/infra-server /home/podman/data nfs noatime,_netdev,vers=4.2 0 0"
         state: present
-
-    - name: Ensure michael owns the mounted NFS directory
-      ansible.builtin.command: chown -R michael:michael /home/michael/podman
+    
+    - name: Ensure podman owns the mounted NFS directory
+      ansible.builtin.command: chown -R podman:podman /home/podman/data
       args:
         warn: false
 
-    - name: Apply SELinux context for Podman data dir
-      community.general.sefcontext:
-        target: '/home/michael/podman(/.*)?'
-        setype: container_file_t
-        state: present
 
-    - name: Restore SELinux context on /home/michael/podman
-      ansible.builtin.command: "restorecon -Rv /home/michael/podman"
-      changed_when: true
+
+

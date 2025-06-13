@@ -10,9 +10,9 @@ all:
         file_server:
           hosts:
             10.10.112.20
-    
-    centos_servers:
-      children:
         infra_server:
           hosts:
             10.10.112.30
+    
+    
+        
