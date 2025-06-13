@@ -107,7 +107,7 @@
         forward_port:
           port: "{{ item.src_port }}"
           protocol: "{{ item.protocol }}"
-          to_port: "{{ item.dst_port }}"
+          to_port: "{{ item.to_port }}"
           to_addr: ""
         permanent: yes
         immediate: yes
