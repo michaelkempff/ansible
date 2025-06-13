@@ -100,18 +100,14 @@
         sysctl_set: yes
         state: present
         reload: yes
-    
-    - name: Redirect common ports for rootless podman
+      
+    - name: Redirect common ports for rootless podman (rich rules)
       ansible.posix.firewalld:
         zone: "{{ item.zone }}"
-        forward_port:
-          port: "{{ item.src_port }}"
-          protocol: "{{ item.protocol }}"
-          to_port: "{{ item.to_port }}"
-          to_addr: ""
+        rich_rule: 'rule family="ipv4" forward-port port="{{ item.src_port }}" protocol="{{ item.protocol }}" to-port="{{ item.to_port }}"'
         permanent: yes
         immediate: yes
-        state: enabled
+        state: enabled  
       loop:
         - { zone: "servers", src_port: 53,  protocol: "tcp", to_port: 8053 }
         - { zone: "servers", src_port: 53,  protocol: "udp", to_port: 8053 }
