@@ -162,6 +162,35 @@
       ansible.builtin.command:
         cmd: chown -R podman:podman /home/podman/data
 
+    - name: Ensure aliases are present in .bashrc for root and michael
+      ansible.builtin.lineinfile:
+        path: "{{ item.bashrc }}"
+        line: "{{ item.alias }}"
+        create: yes
+        owner: "{{ item.user }}"
+        group: "{{ item.user }}"
+        mode: '0644'
+        insertafter: EOF
+      loop:
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias c='clear'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias h='history'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
+
     - name: Haal nieuwste Docker Compose release op via GitHub API
       uri:
         url: https://api.github.com/repos/docker/compose/releases/latest
