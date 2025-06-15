@@ -150,7 +150,7 @@
         path: /home/podman/data
         src: 10.14.112.20:/srv/nfs/infra-server
         fstype: nfs
-        opts: noatime,_netdev,vers=4.2,anonuid=166536,anongid=166536
+        opts: noatime,vers=4.2
         state: mounted
 
     - name: Ensure NFS mount is persistent in /etc/fstab
@@ -188,7 +188,7 @@
         - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
         - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
 
-    - name: Haal nieuwste Docker Compose release op via GitHub API
+    - name: Fetch latest Docker Compose release via GitHub API
       uri:
         url: https://api.github.com/repos/docker/compose/releases/latest
         return_content: yes
@@ -198,7 +198,7 @@
       delay: 5
       until: compose_release.status == 200
 
-    - name: Bepaal Docker Compose versie (fallback indien API faalt)
+    - name: Determine Docker Compose version (fallback if API fails)
       set_fact:
         compose_version: >-
           {{ compose_release.json.tag_name
@@ -229,6 +229,15 @@
         sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
         systemctl --user enable --now podman.socket
 
+    - name: Reboot the server
+      ansible.builtin.reboot:
+        reboot_timeout: 600     # wait up to 10 minutes for reboot
+        test_command: whoami    # command to verify SSH is back
+      tags: reboot
+
+    - name: Reset SSH connection after reboot
+      meta: reset_connection
+      tags: reboot
 
   handlers:
     - name: Controleer docker-compose
