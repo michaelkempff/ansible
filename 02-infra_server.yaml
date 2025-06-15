@@ -149,20 +149,20 @@
         path: /home/podman/data
         src: 10.14.112.20:/srv/nfs/infra-server
         fstype: nfs
-        opts: noatime,_netdev,vers=4.2
+        opts: noatime,_netdev,vers=4.2,anonuid=166536,anongid=166536
         state: mounted
 
     - name: Ensure NFS mount is persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "10.14.112.20:/srv/nfs/infra-server /home/podman/data nfs noatime,_netdev,vers=4.2 0 0"
+        line: "10.14.112.20:/srv/nfs/infra-server /home/podman/data nfs noatime,_netdev,vers=4.2,anonuid=166536,anongid=166536 0 0"
         state: present
     
     - name: Ensure podman owns the mounted NFS directory
       ansible.builtin.command:
         cmd: chown -R podman:podman /home/podman/data
 
-    - name: Ensure aliases are present in .bashrc for root and michael
+    - name: Ensure aliases are present in .bashrc for root, podman and michael
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
         line: "{{ item.alias }}"
