@@ -9,6 +9,8 @@ all:
       children:
         pve-server:
           hosts:
+            10.10.112.10
+            
     debian_servers:
       children:
         file_server:
