@@ -1,0 +1,45 @@
+- name: Install nextcloud-server
+  hosts: pve_server
+  become: yes
+
+    - name: Zorg dat alleen de no-subscription repo gebruikt wordt en schakel nag uit
+  hosts: proxmox
+  become: true
+  vars:
+    deb_codename: "{{ ansible_lsb.codename }}"
+
+  tasks:
+    - name: Verwijder Proxmox enterprise repository
+      file:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        state: absent
+
+    - name: Zet Proxmox no-subscription repository
+      copy:
+        dest: /etc/apt/sources.list.d/pve-no-subscription.list
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          # Proxmox VE no-subscription repository
+          deb http://download.proxmox.com/debian/pve {{ deb_codename }} pve-no-subscription
+      notify: update apt cache
+
+    - name: Disable subscription nag in Web UI
+      replace:
+        path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+        # Zoek de code die de nag toont en forceer dat deze nooit true wordt
+        regexp: 'if \(data\.status === "Active"\)'
+        replace: 'if (false) /* disabled subscription nag */'
+        backup: yes
+
+    - name: Update en upgrade alle pakketten
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        upgrade: dist
+
+  handlers:
+    - name: update apt cache
+      apt:
+        update_cache: yes
