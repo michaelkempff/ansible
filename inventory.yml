@@ -11,6 +11,7 @@ all:
           hosts:
             10.10.112.10
               ansible_user: root
+              ansible_python_interpreter: /usr/bin/python3
             
     debian_servers:
       children:
