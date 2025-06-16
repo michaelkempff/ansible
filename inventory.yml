@@ -10,6 +10,7 @@ all:
         pve-server:
           hosts:
             10.10.112.10
+              ansible_user: root
             
     debian_servers:
       children:
