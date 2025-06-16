@@ -19,16 +19,18 @@
         - /srv/nvme  # Base for NVMe subvolumes
         - /srv/hdd   # Base for HDD subvolumes
         - /srv/nfs   # Base for NFS bind mounts
-        - /srv/smb   # Base for SMB bind mounts
-        
         - /srv/nfs/backup
+        - /srv/nfs/infra-server
+        - /srv/nfs/container-server
+        - /srv/nfs/nextcloud-server
+        - /srv/nfs/srv_pbs_important
+        - /srv/nfs/pbs_test
+        - /srv/nfs/ncbackup
+        - /srv/nfs/pihole-clients
+        - /srv/nfs/pihole-servers
         - /srv/nfs/iso
+        - /srv/nfs/container-images
 
-        - /srv/smb/infra-server      
-        - /srv/smb/container-server
-        - /srv/smb/nextcloud-server
-
-        
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -42,8 +44,12 @@
         - { path: "/srv/nvme/infra-server", opts: "subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/container-server", opts: "subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/nextcloud-server", opts: "subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/ncbackup", opts: "subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/pihole-clients", opts: "subvol=@srv_nvme_pihole-clients,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/srv/nvme/pihole-servers", opts: "subvol=@srv_nvme_pihole-servers,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        
+        - { path: "/srv/nvme/container-images", opts: "subvol=@srv_nvme_container-images,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+
     - name: Mount Btrfs subvolumes (HDD RAID10 Drive)
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -54,7 +60,9 @@
       loop:
         - { path: "/srv/hdd", opts: "subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
         - { path: "/srv/hdd/backup", opts: "subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        
+        - { path: "/srv/hdd/pbs_important", opts: "subvol=@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/hdd/pbs_test", opts: "subvol=@srv_pbs_test,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+
     - name: Mount Btrfs root NVMe U.2 Drive
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -88,8 +96,14 @@
         - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
         - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server" }
         - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server" }
+        - { src: "/srv/nvme/ncbackup", dest: "/srv/nfs/ncbackup" }
+        - { src: "/srv/hdd/pbs_important", dest: "/srv/nfs/pbs_important"}
+        - { src: "/srv/hdd/pbs_test", dest: "/srv/nfs/pbs_test"}
+        - { src: "/srv/nvme/pihole-clients", dest: "/srv/nfs/pihole-clients"}
+        - { src: "/srv/nvme/pihole-servers", dest: "/srv/nfs/pihole-servers"}
         - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
-        
+        - { src: "/srv/nvme/container-images", dest: "/srv/nfs/container-images"}
+
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
@@ -101,33 +115,33 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/container-server btrfs subvol=@srv_nvme_container-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/nextcloud-server btrfs subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/ncbackup btrfs subvol=@srv_nvme_ncbackup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/pihole-clients btrfs subvol=@srv_nvme_pihole-clients,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/pihole-servers btrfs subvol=@srv_nvme_pihole-servers,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/container-images btrfs subvol=@srv_nvme_container-images,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd btrfs subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/backup btrfs subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/pbs_important btrfs subvol=@srv_pbs_important,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/pbs_test btrfs subvol=@srv_pbs_test,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
         - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
         - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
+        - "/srv/hdd/pbs_important /srv/nfs/pbs_important none bind 0 0"
+        - "/srv/hdd/pbs_test /srv/nfs/pbs_test none bind 0 0"
+        - "/srv/nvme/ncbackup /srv/nfs/ncbackup none bind 0 0"
+        - "/srv/nvme/pihole-clients /srv/nfs/pihole-clients none bind 0 0"
+        - "/srv/nvme/pihole-servers /srv/nfs/pihole-servers none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
-               
+        - "/srv/nvme/container-images /srv/nfs/container-images none bind 0 0"
+       
     - name: Install required packages
       ansible.builtin.apt:
         name:
-          - samba
-          - smbclient
-          - python3-samba
-          - htop
-          - iotop
-          - strace
-          - lsof
-          - mc
-          - auditd
-          - apparmor-utils
-          - apparmor-profiles
           - nfs-kernel-server
-          - btrfs-progs
           - firewalld
           - git
           - rsync
@@ -154,8 +168,10 @@
       loop:
         - servers
         - 10G
-        - nfs
-        - smb
+        - pve-host
+        - nextcloud
+        - infra
+        - containers
       when: "item not in firewalld_existing_zones.stdout"
 
     - name: Reload Firewalld to apply new zones
@@ -173,9 +189,11 @@
       loop:
         - { zone: "servers", interface: "eth0" }
         - { zone: "10G", interface: "eth1" }
-        - { zone: "nfs", interface: "eth2" }
-        - { zone: "smb", interface: "eth3" }
-        
+        - { zone: "pve-host", interface: "eth2" }
+        - { zone: "nextcloud", interface: "eth3" }
+        - { zone: "infra", interface: "eth4" }
+        - { zone: "containers", interface: "eth5" }
+
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -185,12 +203,25 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        - { zone: "10G", service: "samba" }
-        - { zone: "nfs", service: "nfs" }
-        - { zone: "nfs", service: "mountd" }
-        - { zone: "nfs", service: "rpc-bind" }
-        - { zone: "smb", service: "samba" }
-        
+        - { zone: "servers", service: "nfs" }
+        - { zone: "servers", service: "mountd" }
+        - { zone: "servers", service: "rpc-bind" }
+        - { zone: "10G", service: "nfs" }
+        - { zone: "10G", service: "mountd" }
+        - { zone: "10G", service: "rpc-bind" }
+        - { zone: "pve-host", service: "nfs" }
+        - { zone: "pve-host", service: "mountd" }
+        - { zone: "pve-host", service: "rpc-bind" }
+        - { zone: "nextcloud", service: "nfs" }
+        - { zone: "nextcloud", service: "mountd" }
+        - { zone: "nextcloud", service: "rpc-bind" }
+        - { zone: "infra", service: "nfs" }
+        - { zone: "infra", service: "mountd" }
+        - { zone: "infra", service: "rpc-bind" }
+        - { zone: "containers", service: "nfs" }
+        - { zone: "containers", service: "mountd" }
+        - { zone: "containers", service: "rpc-bind" }
+
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -199,11 +230,31 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "nfs", port: "32767/tcp" }
-        - { zone: "nfs", port: "32767/udp" }
-        - { zone: "nfs", port: "32765/tcp" }
-        - { zone: "nfs", port: "32765/udp" }
-        
+        - { zone: "servers", port: "32767/tcp" }
+        - { zone: "servers", port: "32767/udp" }
+        - { zone: "servers", port: "32765/tcp" }
+        - { zone: "servers", port: "32765/udp" }
+        - { zone: "10G", port: "32767/tcp" }
+        - { zone: "10G", port: "32767/udp" }
+        - { zone: "10G", port: "32765/tcp" }
+        - { zone: "10G", port: "32765/udp" }
+        - { zone: "pve-host", port: "32767/tcp" }
+        - { zone: "pve-host", port: "32767/udp" }
+        - { zone: "pve-host", port: "32765/tcp" }
+        - { zone: "pve-host", port: "32765/udp" }
+        - { zone: "nextcloud", port: "32767/tcp" }
+        - { zone: "nextcloud", port: "32767/udp" }
+        - { zone: "nextcloud", port: "32765/tcp" }
+        - { zone: "nextcloud", port: "32765/udp" }
+        - { zone: "infra", port: "32767/tcp" }
+        - { zone: "infra", port: "32767/udp" }
+        - { zone: "infra", port: "32765/tcp" }
+        - { zone: "infra", port: "32765/udp" }
+        - { zone: "containers", port: "32767/tcp" }
+        - { zone: "containers", port: "32767/udp" }
+        - { zone: "containers", port: "32765/tcp" }
+        - { zone: "containers", port: "32765/udp" }
+
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
@@ -282,9 +333,18 @@
       ansible.builtin.blockinfile:
         path: /etc/exports
         block: |
-          /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.55(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/iso 10.10.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.11(rw,sync,no_subtree_check,no_root_squash) 10.10.112.50(rw,sync,no_subtree_check,no_root_squash) 10.10.112.51(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/backup 10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/infra-server 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/nextcloud-server 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/ncbackup 10.13.112.41(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pbs_important 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pbs_test 10.14.112.40(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/container-server 10.15.112.42(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.55(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pihole-clients 10.10.112.30(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/pihole-servers 10.10.112.31(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/iso 10.10.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.11(rw,sync,no_subtree_check,no_root_squash) 10.10.112.50(rw,sync,no_subtree_check,no_root_squash) 10.10.112.51(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/container-images 10.10.112.50(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
