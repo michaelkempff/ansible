@@ -1,10 +1,7 @@
-- name: Install nextcloud-server
+- name: Install pve-server
   hosts: pve_server
   become: yes
 
-    - name: Zorg dat alleen de no-subscription repo gebruikt wordt en schakel nag uit
-  hosts: proxmox
-  become: true
   vars:
     deb_codename: "{{ ansible_lsb.codename }}"
 
