@@ -7,11 +7,10 @@ all:
 
     proxmox_servers:
       children:
-        pve_server:
+        pve-server:
           hosts:
             10.10.112.10
-              ansible_user: root
-
+            
     debian_servers:
       children:
         file_server:
