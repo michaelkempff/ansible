@@ -4,7 +4,11 @@ all:
     ansible_ssh_private_key_file: ~/.ssh/id_ed25519
   
   children:
-    
+
+    proxmox_servers:
+      children:
+        pve-server:
+          hosts:
     debian_servers:
       children:
         file_server:

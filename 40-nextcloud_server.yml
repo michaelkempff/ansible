@@ -1,9 +1,9 @@
-- name: Install infra-server
-  hosts: infra_server
+- name: Install nextcloud-server
+  hosts: nextcloud_server
   become: yes
   
   vars_files:
-  - infra_server_vars.yml
+  - nextcloud_server_vars.yml
 
   tasks:
 
