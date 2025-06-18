@@ -36,6 +36,26 @@
         cache_valid_time: 3600
         upgrade: dist
 
+    - name: Install required packages
+      ansible.builtin.apt:
+        name:
+          - proxmox-auto-install-assistant
+          - xorriso
+          - htop
+          - iotop
+          - strace
+          - lsof
+          - mc
+          - auditd
+          - apparmor-utils
+          - apparmor-profiles
+          - btrfs-progs
+          - git
+          - rsync
+          - fastfetch
+        state: present
+        update_cache: yes
+
   handlers:
     - name: update apt cache
       apt:
