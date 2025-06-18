@@ -2,25 +2,29 @@ all:
   vars:
     ansible_user: michael
     ansible_ssh_private_key_file: ~/.ssh/id_ed25519
-  
+
   children:
 
     proxmox_servers:
       children:
-        pve-server:
+
+        pve_server:
           hosts:
-            10.10.112.10
-              ansible_user: root
+            10.10.112.10:
               ansible_python_interpreter: /usr/bin/python3
-            
+
+        pve_workstation:
+          hosts:
+            10.10.112.11:
+              ansible_python_interpreter: /usr/bin/python3
+
     debian_servers:
       children:
+
         file_server:
           hosts:
-            10.10.112.20
+            10.10.112.20: {}
+
         infra_server:
           hosts:
-            10.10.112.30
-    
-    
-        
+            10.10.112.30: {}

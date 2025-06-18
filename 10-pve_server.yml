@@ -1,24 +1,13 @@
 ---
-- name: Install pve-server
- hosts: pve_server
- become: yes
+- name: Install pve_server
+  hosts: pve_server
+  become: yes
 
   vars:
     deb_codename: "{{ ansible_lsb.codename }}"
 
   tasks:
     
-    - name: Pause for warning and confirmation
-      pause:
-        prompt: |
-          PROXMOX PVE post install playbook
-          
-          ⚠️ WARNING! This playbook will format the VM SSDs for storage ⚠️
-          Tested only on a fresh, single-node Proxmox PVE installation.
-          USE AT YOUR OWN RISK!
-          
-          Press ENTER to proceed or CTRL+C to abort.
-
     - name: Disable subscription nag in Web UI
       replace:
         path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
@@ -48,7 +37,7 @@
           - apparmor-utils
           - apparmor-profiles
           - git
-          - fastfetch
+          - neofetch
         state: present
         update_cache: yes
 
@@ -60,10 +49,10 @@
         vtype: boolean
 
     - name: Reinstall grub-efi-amd64
-      apt:
-        name: grub-efi-amd64
-        state: reinstalled
-        update_cache: yes
+      become: yes
+      shell: |
+        DEBIAN_FRONTEND=noninteractive \
+        apt-get install --reinstall -y grub-efi-amd64
 
     - name: Set up bash aliases for users
       blockinfile:
@@ -95,15 +84,27 @@
           net.ipv4.tcp_congestion_control=bbr
       notify: Reload sysctl
 
-    - name: Create Btrfs RAID1 for vmstorage0
-      community.general.filesystem:
-        fstype: btrfs
-        dev:
-          - /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NF0WC22083
-          - /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NU0W634554
-        force: yes
-        opts: "-d raid1 -m raid1"
+    - name: Resolve vmstorage0 disk 1 real path
+      command: readlink -f /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NF0WC22083
+      register: vm0disk0
+      changed_when: false
 
+    - name: Resolve vmstorage0 disk 2 real path
+      command: readlink -f /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NU0W634554
+      register: vm0disk1
+      changed_when: false
+
+    - name: Create Btrfs RAID1 for vmstorage0
+      become: yes
+      shell:
+        cmd: |
+          # Alleen formatteren als er nog geen Btrfs-superblok staat
+          if ! btrfs inspect-internal dump-tree {{ vm0disk0.stdout }} &>/dev/null; then
+            mkfs.btrfs -f -d raid1 -m raid1 {{ vm0disk0.stdout }} {{ vm0disk1.stdout }}
+          fi
+        executable: /bin/bash
+        warn: no
+        
     - name: Ensure mount point for vmstorage0
       file:
         path: /srv/pve/vmstorage0
