@@ -1,6 +1,7 @@
+---
 - name: Install pve-server
-  hosts: pve_server
-  become: yes
+ hosts: pve_server
+ become: yes
 
   vars:
     deb_codename: "{{ ansible_lsb.codename }}"
