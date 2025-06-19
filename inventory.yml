@@ -21,6 +21,10 @@ all:
     debian_servers:
       children:
 
+        backup_server:
+          hosts:
+            10.10.112.15: {}
+
         file_server:
           hosts:
             10.10.112.20: {}
