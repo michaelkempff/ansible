@@ -1,5 +1,5 @@
 - name: Install Proxmox Backup Server (PBS) Community Edition
-  hosts: pbs_container
+  hosts: backup_server
   become: yes
 
   vars:
@@ -7,10 +7,13 @@
 
   tasks:
 
-    tasks:
+    - name: Disable Proxmox Backup Server enterprise repository
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/pbs-enterprise.list
+        state: absent
 
-    - name: Install packages
-      apt:
+    - name:
+      ansible.builtin.apt:
         name:
           - apt-transport-https
           - curl
@@ -19,7 +22,7 @@
           - htop
           - iotop
           - mc
-          - nfs-utils
+          - nfs-kernel-server
         state: present
         update_cache: yes
 
@@ -48,3 +51,9 @@
         name: proxmox-backup
         enabled: yes
         state: started
+
+    - name: Comment out enterprise repo lines in pbs-enterprise.list
+      ansible.builtin.replace:
+        path: /etc/apt/sources.list.d/pbs-enterprise.list
+        regexp: '^deb '
+        replace: '# deb '
