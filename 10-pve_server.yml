@@ -3,9 +3,6 @@
   hosts: pve_server
   become: yes
 
-  vars:
-    deb_codename: "{{ ansible_lsb.codename }}"
-
   tasks:
     
     - name: Disable subscription nag in Web UI
@@ -84,200 +81,32 @@
           net.ipv4.tcp_congestion_control=bbr
       notify: Reload sysctl
 
-    - name: Resolve vmstorage0 disk 1 real path
-      command: readlink -f /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NF0WC22083
-      register: vm0disk0
-      changed_when: false
 
-    - name: Resolve vmstorage0 disk 2 real path
-      command: readlink -f /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NU0W634554
-      register: vm0disk1
-      changed_when: false
-
-    - name: Create Btrfs RAID1 for vmstorage0
-      become: yes
-      shell:
-        cmd: |
-          # Alleen formatteren als er nog geen Btrfs-superblok staat
-          if ! btrfs inspect-internal dump-tree {{ vm0disk0.stdout }} &>/dev/null; then
-            mkfs.btrfs -f -d raid1 -m raid1 {{ vm0disk0.stdout }} {{ vm0disk1.stdout }}
-          fi
-        executable: /bin/bash
-        warn: no
-        
-    - name: Ensure mount point for vmstorage0
-      file:
-        path: /srv/pve/vmstorage0
-        state: directory
-
-    - name: Get UUID for vmstorage0
-      command: blkid -s UUID -o value /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HCLR-00B00_S676NF0WC22083
-      register: vm0_uuid
-
-    - name: Mount vmstorage0 via fstab
-      mount:
-        path: /srv/pve/vmstorage0
-        src: "UUID={{ vm0_uuid.stdout }}"
-        fstype: btrfs
-        opts: noatime,nodev,nosuid,noexec,ssd,autodefrag,space_cache=v2
-        state: mounted
-        dump: 0
-        passno: 0
-
-    - name: Add Proxmox storage vmstorage0
-      shell: pvesm add dir vmstorage0 --path /srv/pve/vmstorage0 --content backup,images,rootdir,snippets,vztmpl,iso
-      args:
-        warn: false
-
-    - name: Create Btrfs RAID1 for vmstorage1
-      community.general.filesystem:
-        fstype: btrfs
-        dev:
-          - /dev/disk/by-id/nvme-KINGSTON_SKC2500M81000G_50026B768523B60A
-          - /dev/disk/by-id/nvme-KINGSTON_SKC2500M81000G_50026B768523BCCF
-        force: yes
-        opts: "-d raid1 -m raid1"
-
-    - name: Ensure mount point for vmstorage1
-      file:
-        path: /srv/pve/vmstorage1
-        state: directory
-
-    - name: Get UUID for vmstorage1
-      command: blkid -s UUID -o value /dev/disk/by-id/nvme-KINGSTON_SKC2500M81000G_50026B768523B60A
-      register: vm1_uuid
-
-    - name: Mount vmstorage1 via fstab
-      mount:
-        path: /srv/pve/vmstorage1
-        src: "UUID={{ vm1_uuid.stdout }}"
-        fstype: btrfs
-        opts: noatime,nodev,nosuid,noexec,ssd,autodefrag,space_cache=v2
-        state: mounted
-        dump: 0
-        passno: 0
-
-    - name: Add Proxmox storage vmstorage1
-      shell: pvesm add dir vmstorage1 --path /srv/pve/vmstorage1 --content backup,images,rootdir,snippets,vztmpl,iso
-      args:
-        warn: false
-
-    - name: Backup existing network interfaces file
-      copy:
-        src: /etc/network/interfaces
-        dest: /etc/network/interfaces.bak
-        remote_src: yes
-
-    - name: Deploy new network interfaces configuration
-      copy:
-        dest: /etc/network/interfaces
-        content: |-
-          auto lo
-          iface lo inet loopback
-
-          iface enp36s0 inet manual
-
-          iface enp35s0 inet manual
-
-          iface enxe69a225f7a05 inet manual  # IPMI interface
-
-          iface enp43s0f0 inet manual
-
-          iface enp43s0f1 inet manual
-
-          iface enxc62c9a475f2f inet manual
-
-          auto vmbr0
-          iface vmbr0 inet static
-            address 10.10.112.10/24
-            gateway 10.10.112.1
-            bridge-ports enp36s0
-            bridge-stp off
-            bridge-fd 0
-          # Servers Network 10.10.112.0/24
-
-          auto vmbr1
-          iface vmbr1 inet manual
-            bridge-ports enp35s0
-            bridge-stp off
-            bridge-fd 0
-            bridge-vlan-aware yes
-            bridge-vids 2-4094
-          # Clients Network 10.10.111.0/24
-
-          auto vmbr2
-          iface vmbr2 inet.manual
-            bridge-ports enp43s0f0
-            bridge-stp off
-            bridge-fd 0
-            bridge-vlan-aware yes
-            bridge-vids 2-4094
-          # 10G Network 10.10.116.0/24
-
-          auto vmbr3
-          iface vmbr3 inet.manual
-            bridge-ports enp43s0f1
-            bridge-stp off
-            bridge-fd 0
-            bridge-vlan-aware yes
-            bridge-vids 2-4094
-          # NOT Network 10.10.114.0/24
-
-          auto vmbr4
-          iface vmbr4 inet.manual
-            bridge-ports none
-            bridge-stp off
-            bridge-fd 0
-            bridge-vlan-aware yes
-            bridge-vids 2-4094
-          # Containers network 10.11.112.0/24
-
-          auto vmbr5
-          iface vmbr5 inet.manual
-            address 10.12.112.10/24
-            bridge-ports none
-            bridge-stp off
-            bridge-fd 0
-          # NFS Network 10.12.112.0/24
-
-          auto vmbr6
-          iface vmbr6 inet.manual
-            address 10.13.112.10/24
-            bridge-ports none
-            bridge-stp off
-            bridge-fd 0
-          # SMB Network 10.13.112.0/24
-
-          source /etc/network/interfaces.d/*
-      notify: Restart networking
 
     - name: Restart Proxmox services
       service:
-        name:
-          - pvedaemon
-          - pveproxy
-          - pvestatd
+        name: "{{ item }}"
         state: restarted
+      loop:
+        - pvedaemon
+        - pveproxy
+        - pvestatd
 
-    - name: Configure zram module load
+    - name: Deploy IOMMU dump script
       copy:
-        dest: /etc/modules-load.d/zram.conf
-        content: 'zram'
-
-    - name: Add udev rule for zram
-      copy:
-        dest: /etc/udev/rules.d/99-zram.rules
+        dest: /usr/local/bin/iommu.sh
+        mode: '0755'
+        owner: root
+        group: root
         content: |
-          KERNEL=="zram0", ACTION=="add", ATTR{comp_algorithm}="zstd", ATTR{disksize}="8192M", RUN+="/sbin/mkswap /dev/zram0", TAG+="systemd"
-
-    - name: Ensure zram swap in fstab
-      mount:
-        name: swap
-        src: /dev/zram0
-        fstype: swap
-        opts: defaults,pri=10
-        state: present
-
+          #!/bin/bash
+          shopt -s nullglob
+          for g in $(find /sys/kernel/iommu_groups/* -maxdepth 0 -type d | sort -V); do
+              echo "IOMMU Group ${g##*/}:"
+              for d in "$g"/devices/*; do
+                  echo -e "\t$(lspci -nns "${d##*/}")"
+              done
+          done
   handlers:
 
     - name: update apt cache
