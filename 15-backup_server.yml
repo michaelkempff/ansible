@@ -8,26 +8,18 @@
   tasks:
 
     tasks:
-    - name: Create required directories (excluding Btrfs-managed paths)
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-      loop:
-        - /srv/hdd                    # Base for NVMe subvolumes
-        - /srv/nfs                    # Base for NFS bind mounts
-        - /srv/pbs-pve-server         # Backup storage for pve-server
-        - /srv/pbs-pve-workstation    # Backup storage for pve-workstation
-        
 
-    - name: Ensure apt tools are installed
+    - name: Install packages
       apt:
         name:
           - apt-transport-https
           - curl
           - gnupg
+          - btrfs-progs
+          - htop
+          - iotop
+          - mc
+          - nfs-utils
         state: present
         update_cache: yes
 
