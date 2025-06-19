@@ -493,7 +493,7 @@
           #!/usr/bin/env bash
           set -e
           git clone git@github.com:michaelkempff/creation-scripts.git
-          git clone git@github.com:michaelkempff/Proxmox-PVE-scripts.git
+          git clone git@github.com:michaelkempff/proxmox-config-files.git
 
     - name: Read Michael’s public SSH key
       become: yes
