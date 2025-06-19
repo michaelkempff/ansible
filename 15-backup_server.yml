@@ -1,0 +1,58 @@
+- name: Install Proxmox Backup Server (PBS) Community Edition
+  hosts: pbs_container
+  become: yes
+
+  vars:
+    pbs_repo: "deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription"
+
+  tasks:
+
+    tasks:
+    - name: Create required directories (excluding Btrfs-managed paths)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /srv/hdd                    # Base for NVMe subvolumes
+        - /srv/nfs                    # Base for NFS bind mounts
+        - /srv/pbs-pve-server         # Backup storage for pve-server
+        - /srv/pbs-pve-workstation    # Backup storage for pve-workstation
+        
+
+    - name: Ensure apt tools are installed
+      apt:
+        name:
+          - apt-transport-https
+          - curl
+          - gnupg
+        state: present
+        update_cache: yes
+
+    - name: Add Proxmox Backup Server repository key
+      ansible.builtin.apt_key:
+        url: https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg
+        state: present
+
+    - name: Add Proxmox Backup Server no-subscription repository
+      ansible.builtin.apt_repository:
+        repo: "{{ pbs_repo }}"
+        state: present
+        filename: proxmox-backup-server
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install Proxmox Backup Server package
+      apt:
+        name: proxmox-backup-server
+        state: present
+
+    - name: Ensure PBS services are started and enabled
+      ansible.builtin.systemd:
+        name: proxmox-backup
+        enabled: yes
+        state: started
