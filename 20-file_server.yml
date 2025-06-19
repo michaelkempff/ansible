@@ -17,9 +17,9 @@
         mode: '0755'
       loop:
         - /srv/nvme  # Base for NVMe subvolumes
-        - /srv/hdd   # Base for HDD subvolumes
         - /srv/nfs   # Base for NFS bind mounts
         - /srv/smb   # Base for SMB bind mounts
+        - /srv/mnt   # Directory for NFS mounts
         
         - /srv/nfs/backup
         - /srv/nfs/iso
@@ -44,17 +44,6 @@
         - { path: "/srv/nvme/nextcloud-server", opts: "subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         
-    - name: Mount Btrfs subvolumes (HDD RAID10 Drive)
-      ansible.builtin.mount:
-        path: "{{ item.path }}"
-        src: "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c"
-        fstype: btrfs
-        opts: "{{ item.opts }}"
-        state: mounted
-      loop:
-        - { path: "/srv/hdd", opts: "subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        - { path: "/srv/hdd/backup", opts: "subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        
     - name: Mount Btrfs root NVMe U.2 Drive
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -65,17 +54,6 @@
       loop:
         - { path: "/srv/nvme/btrfsroot", uuid: "19583b5d-8c79-4f16-b902-153124679f5e", opts: "noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
-
-    - name: Mount Btrfs root HDD RAID10 Drive
-      ansible.builtin.mount:
-        path: "{{ item.path }}"
-        src: "UUID={{ item.uuid }}"
-        fstype: btrfs
-        opts: "{{ item.opts }}"
-        state: mounted
-      loop:
-        - { path: "/srv/hdd/btrfsroot", uuid: "c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c", opts: "noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
-        
     - name: Bind mount directories
       ansible.builtin.mount:
         path: "{{ item.dest }}"
@@ -102,10 +80,9 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/nextcloud-server btrfs subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd btrfs subvol=@srv_hdd,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
-        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/backup btrfs subvol=@srv_hdd_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+       
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/hdd/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
         - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"

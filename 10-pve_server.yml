@@ -475,6 +475,49 @@
         user: root
         job: "/usr/bin/aide --config=/etc/aide/aide.conf --check"
 
+    - name: Create required directories (excluding Btrfs-managed paths)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /srv/backup
+        - /srv/btrfsroot
+        - /srv/iso
+        - /srv/pbs
+        - /srv/pbs/pve-server
+        - /srv/pbs/pve-workstation
+
+    - name: Mount Btrfs root and subvolumes (HDD RAID10 Drive)
+      ansible.builtin.mount:
+        path: "{{ item.path }}"
+        src: "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c"
+        fstype: btrfs
+        opts: "{{ item.opts }}"
+        state: mounted
+      loop:
+        - { path: "/srv/backup", opts: "subvol=@srv_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/btrfsroot", opts: "noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/iso", opts: "subvol=@srv_iso,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/pbs/pve-server", opts: "subvol=@srv__pbs_pve-server,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+        - { path: "/srv/pbs/pve-workstation", opts: "subvol=@srv__pbs_pve-workstation,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd" }
+
+    - name: Ensure all mounts are persistent in /etc/fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        line: "{{ item }}"
+        state: present
+      loop:
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/backup btrfs subvol=@srv_backup,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/iso btrfs subvol=@srv_iso,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/pbs/pve-server btrfs subvol=@srv_pbs_pve-server,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+        - "UUID=c3c23dbc-7f0a-427c-9a3f-2462a3dc1e5c /srv/pbs/pve-workstation btrfs subvol=@srv_pbs_pve-workstation,noatime,nodev,nosuid,noexec,compress-force=zstd:6,autodefrag,space_cache=v2,nossd 0 0"
+
+    
+
     - name: Ensure /home/michael/build directory exists
       ansible.builtin.file:
         path: /home/michael/build
