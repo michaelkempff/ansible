@@ -3,16 +3,233 @@
   hosts: pve_server
   become: yes
 
-  tasks:
+  vars:
     
-    - name: Disable subscription nag in Web UI
+    node_name: "{{ ansible_hostname }}"
+    primary_dns: 1.1.1.1      
+    secondary_dns: 8.8.8.8
+    search_domain: home.arpa
+    grub_cfg: /etc/default/grub     
+
+  tasks:
+
+    - name: Disable subscription nag in proxmox-widget-toolkit
       replace:
         path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-        # Zoek de code die de nag toont en forceer dat deze nooit true wordt
         regexp: 'if \(data\.status === "Active"\)'
         replace: 'if (false) /* disabled subscription nag */'
         backup: yes
+      notify: Restart PVE Proxy
 
+    - name: Disable subscription nag in pve-manager GUI
+      stat:
+        path: /usr/share/pve-manager/js/pvemanagerlib.js
+      register: pvemgr_js
+
+    - name: Patch pve-manager subscription check (if present)
+      replace:
+        path: /usr/share/pve-manager/js/pvemanagerlib.js
+        regexp: 'if \(data\.status === "Active"\)'
+        replace: 'if (false) /* disabled subscription nag */'
+        backup: yes
+      when: pvemgr_js.stat.exists
+      notify: Restart PVE Proxy
+
+    - name: Voeg mem_encrypt=on en kvm_amd.sev=1 toe aan GRUB_CMDLINE_LINUX_DEFAULT (idempotent)
+      ansible.builtin.lineinfile:
+        path: /etc/default/grub
+        regexp: '^GRUB_CMDLINE_LINUX_DEFAULT="(.*)"'
+        line: 'GRUB_CMDLINE_LINUX_DEFAULT="\1 mem_encrypt=on kvm_amd.sev=1"'
+        backrefs: yes
+      register: grub_line
+
+    - name: Update grub-config indien aangepast
+      ansible.builtin.command:
+        cmd: update-grub
+
+    - name: Mount /tmp as tmpfs with hardened options
+      become: yes
+      ansible.builtin.mount:
+        path: /tmp
+        src: tmpfs
+        fstype: tmpfs
+        opts: size=2G,mode=1777,nodev,nosuid,noexec
+        state: mounted
+
+    - name: Prepare /var/tmp for bind‐mount
+      become: yes
+      ansible.builtin.file:
+        path: /var/tmp
+        state: directory
+        mode: '1777'
+
+    - name: Bind‐mount /var/tmp on /tmp with hardened options
+      become: yes
+      ansible.builtin.mount:
+        path: /var/tmp
+        src: /tmp
+        fstype: none
+        opts: bind,nodev,nosuid,noexec
+        state: mounted
+
+    - name: Overwrite /etc/resolv.conf with two nameservers
+      ansible.builtin.copy:
+        dest: /etc/resolv.conf
+        content: |
+          # Managed by Ansible
+          search {{ search_domain }}
+          nameserver {{ primary_dns }}
+          nameserver {{ secondary_dns }}
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: (Re)start networking to pick up resolv.conf
+      ansible.builtin.systemd:
+        name: networking
+        state: restarted
+
+    - name: Deploy host-level firewall config
+      shell: |
+        cat > /etc/pve/firewall/{{ inventory_hostname }}.fw << 'EOF'
+        [OPTIONS]
+        enable: 1
+
+        [RULES]
+        # built-in allow loopback + established/related
+
+        # only on vmbr0:
+        IN ACCEPT -i vmbr0 tcp dport 22        comment "SSH"
+        IN ACCEPT -i vmbr0 udp dport 123       comment "NTP"
+        IN ACCEPT -i vmbr0 tcp dport 8006      comment "PVE GUI"
+        IN ACCEPT -i vmbr0 tcp dport 5900-5999 comment "VNC"
+        IN ACCEPT -i vmbr0 tcp dport 3128      comment "SPICE"
+        IN ACCEPT -i vmbr0 tcp dport 111       comment "RPCBind TCP"
+        IN ACCEPT -i vmbr0 udp dport 111       comment "RPCBind UDP"
+
+        # everything else: drop
+        IN DROP comment "Drop all other inbound"
+        EOF
+      args:
+        executable: /bin/bash
+
+    - name: Reload Proxmox firewall
+      service:
+        name: pve-firewall
+        state: reloaded
+        enabled: yes
+
+    - name: Deploy SSH hardening drop-in
+      copy:
+        dest: /etc/ssh/sshd_config.d/90-hardening.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          AddressFamily inet
+          ListenAddress 10.10.112.10
+          PermitRootLogin no
+          PasswordAuthentication no
+          ChallengeResponseAuthentication no
+          UsePAM yes
+          X11Forwarding no
+          AllowTcpForwarding no
+          ClientAliveInterval 300
+          ClientAliveCountMax 2
+          Banner /etc/issue.net
+          Compression no
+          LogLevel VERBOSE
+          MaxSessions 2
+          TCPKeepAlive no
+          AllowAgentForwarding no
+          # LoginGraceTime 30
+          MaxAuthTries 3
+
+    - name: Restart SSH to apply hardening
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Deploy login warning banner for /etc/issue
+      copy:
+        dest: /etc/issue
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          +----------------------------------------------------+
+          | This is a controlled access system. The activities |
+          | on this system are monitored.                      |
+          | Evidence of unauthorised activities may be         |
+          | disclosed to the appropriate authorities.          |
+          +----------------------------------------------------+
+
+    - name: Deploy login warning banner for /etc/issue.net
+      copy:
+        dest: /etc/issue.net
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          +----------------------------------------------------+
+          | This is a controlled access system. The activities |
+          | on this system are monitored.                      |
+          | Evidence of unauthorised activities may be         |
+          | disclosed to the appropriate authorities.          |
+          +----------------------------------------------------+
+
+    - name: Install fail2ban
+      apt:
+        name: fail2ban
+        state: present
+        update_cache: yes
+
+    - name: Deploy fail2ban jail config for SSH and WebUI
+      copy:
+        dest: /etc/fail2ban/jail.d/proxmox.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [sshd]
+          enabled   = true
+          port      = ssh
+          filter    = sshd
+          logpath   = /var/log/auth.log
+          maxretry  = 5
+
+          [proxmox-webui]
+          enabled   = true
+          port      = 8006
+          filter    = proxmox-webui
+          logpath   = /var/log/pveproxy/access.log
+          maxretry  = 5
+
+    - name: Deploy fail2ban filter for Proxmox WebUI
+      copy:
+        dest: /etc/fail2ban/filter.d/proxmox-webui.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          [Definition]
+          # detect failed login attempts via the /access/ticket API
+          failregex = <HOST> .* "(GET|POST) /api2/json/access/ticket.*"  # adjust if needed
+          ignoreregex =
+
+    - name: Ensure fail2ban is running
+      service:
+        name: fail2ban
+        state: restarted
+        enabled: yes
+
+    - name: Preserve default fail2ban settings in jail.local
+      shell: |
+        cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
+      args:
+        creates: /etc/fail2ban/jail.local
+        
     - name: Update en upgrade alle pakketten
       apt:
         update_cache: yes
@@ -24,6 +241,8 @@
         name:
           - proxmox-auto-install-assistant
           - xorriso
+          - lynis
+          - libsensors5
           - transmission-cli
           - htop
           - iotop
@@ -35,6 +254,12 @@
           - apparmor-profiles
           - git
           - neofetch
+          - apt-listbugs
+          - needrestart
+          - debian-goodies
+          - debsums
+          - apt-show-versions
+          - rkhunter
         state: present
         update_cache: yes
 
@@ -81,7 +306,78 @@
           net.ipv4.tcp_congestion_control=bbr
       notify: Reload sysctl
 
+    - name: Add security sysctl settings
+      blockinfile:
+        path: /etc/sysctl.d/99-security.conf
+        create: yes
+        block: |-
+          # Kernel hardening
+          dev.tty.ldisc_autoload=0
+          fs.protected_fifos=2
+          kernel.core_uses_pid=1
+          kernel.kptr_restrict=2
+          kernel.perf_event_paranoid=3
+          kernel.unprivileged_bpf_disabled=0
+          net.core.bpf_jit_harden=0
+          fs.suid_dumpable=0
 
+          net.ipv4.conf.all.accept_redirects=0
+          net.ipv4.conf.all.log_martians=1
+          # rp_filter laat Proxmox op '2' staan, dus die overslaan
+
+          net.ipv4.conf.all.send_redirects=0
+          net.ipv4.conf.default.accept_redirects=0
+          net.ipv4.conf.default.accept_source_route=0
+          net.ipv4.conf.default.log_martians=1
+
+          net.ipv6.conf.all.accept_redirects=0
+          net.ipv6.conf.default.accept_redirects=0
+      notify: Reload sysctl
+
+    - name: Disable core dumps via limits.conf
+      become: yes
+      ansible.builtin.blockinfile:
+        path: /etc/security/limits.conf
+        marker: "# {mark} ANSIBLE CORE DUMP DISABLE"
+        block: |
+          # Prevent any user from writing core dumps
+          *               hard    core            0
+          root            hard    core            0
+
+    - name: Deploy basic auditd ruleset
+      copy:
+        dest: /etc/audit/rules.d/99-default.rules
+        owner: root
+        group: root
+        mode: '0640'
+        content: |
+          # Identity files
+          -w /etc/passwd -p wa -k identity
+          -w /etc/shadow -p wa -k identity
+          -w /etc/group  -p wa -k identity
+
+          # Privilege escalation
+          -w /etc/sudoers             -p wa -k privileged
+          -w /etc/sudoers.d/         -p wa -k privileged
+
+          # Logins
+          -w /var/log/faillog -p wa -k logins
+          -w /var/log/lastlog -p wa -k logins
+          -w /var/log/secure  -p wa -k logins
+
+          # Command execution
+          -a always,exit -F arch=b64 -S execve -k exec
+          -a always,exit -F arch=b32 -S execve -k exec
+
+          # End-of-rules marker
+          -e 2
+      notify: Restart auditd
+
+    - name: Ensure auditd is running
+      service:
+        name: auditd
+        state: restarted
+        enabled: yes
 
     - name: Restart Proxmox services
       service:
@@ -107,7 +403,102 @@
                   echo -e "\t$(lspci -nns "${d##*/}")"
               done
           done
+  
+    - name: Find all user home directories
+      ansible.builtin.find:
+        paths: /home
+        file_type: directory
+        depth: 1
+      register: home_dirs
+
+    - name: Secure home directory permissions
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: "{{ item.path | basename }}"
+        group: "{{ item.path | basename }}"
+        mode: '0750'
+      loop: "{{ home_dirs.files }}"
+
+    - name: Install AIDE package
+      apt:
+        name: aide
+        state: present
+        update_cache: yes
+
+    - name: Deploy basic AIDE configuration
+      copy:
+        dest: /etc/aide/aide.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          ############################################################
+          # Sample AIDE configuration
+          ############################################################
+          database=file:/var/lib/aide/aide.db
+          database_out=file:/var/lib/aide/aide.db.new
+          gzip_dbout=yes
+
+          # Define checksums and attributes
+          R = p+i+n+u+g+s+m+S+acl+selinux+xattrs+sha512
+
+          # Directories to monitor
+          /etc       R
+          /bin       R
+          /sbin      R
+          /usr/bin   R
+          /usr/sbin  R
+          /var/log   R
+
+          # Exclude runtime files
+          !/var/log/audit/*
+
+          # End of rules
+
+    - name: Initialize AIDE database
+      become: yes
+      command: /usr/bin/aide --init --config=/etc/aide/aide.conf
+      args:
+        creates: /var/lib/aide/aide.db.new
+
+    - name: Move freshly initialized AIDE database into place
+      become: yes
+      command: mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+      args:
+        creates: /var/lib/aide/aide.db
+
+    - name: Schedule daily AIDE check at 6AM
+      cron:
+        name: "Daily AIDE check"
+        minute: 0
+        hour: 6
+        user: root
+        job: "/usr/bin/aide --config=/etc/aide/aide.conf --check"
+
+    - name: Ensure /home/michael/build directory exists
+      ansible.builtin.file:
+        path: /home/michael/build
+        state: directory
+        owner: michael
+        group: michael
+        mode: '0755'
+
+    - name: Read Michael’s public SSH key
+      become: yes
+      ansible.builtin.command: cat /home/michael/.ssh/id_ed25519.pub
+      register: michael_pubkey
+      changed_when: false
+
+    - name: Display Michael’s public SSH key
+      ansible.builtin.debug:
+        msg: "{{ michael_pubkey.stdout }}"
+
   handlers:
+
+    - name: Restart PVE Proxy
+      service:
+        name: pveproxy
+        state: restarted
 
     - name: update apt cache
       apt:
@@ -119,4 +510,9 @@
     - name: Restart networking
       service:
         name: networking
+        state: restarted
+
+    - name: Restart auditd
+      service:
+        name: auditd
         state: restarted
