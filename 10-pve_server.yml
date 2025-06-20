@@ -476,6 +476,13 @@
         user: root
         job: "/usr/bin/aide --config=/etc/aide/aide.conf --check"
 
+    - name: Harden default umask in /etc/login.defs
+      ansible.builtin.lineinfile:
+        path: /etc/login.defs
+        regexp: '^UMASK'
+        line: 'UMASK 027'
+        backup: yes
+
     - name: Create required directories (excluding Btrfs-managed paths)
       ansible.builtin.file:
         path: "{{ item }}"

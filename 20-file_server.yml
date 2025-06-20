@@ -104,6 +104,7 @@
           - git
           - rsync
           - fastfetch
+          - lynis
         state: present
         update_cache: yes
 

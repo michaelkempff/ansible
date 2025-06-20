@@ -28,8 +28,10 @@ all:
 
         file_server:
           hosts:
-            10.10.112.20: {}
+            10.10.112.20:
+              ansible_python_interpreter: /usr/bin/python3
 
         infra_server:
           hosts:
-            10.10.112.30: {}
+            10.10.112.30:
+              ansible_python_interpreter: /usr/bin/python3
