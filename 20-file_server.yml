@@ -20,14 +20,11 @@
         - /srv/nfs   # Base for NFS bind mounts
         - /srv/smb   # Base for SMB bind mounts
         - /srv/mnt   # Directory for NFS mounts
-        
         - /srv/nfs/backup
         - /srv/nfs/iso
-
         - /srv/smb/infra-server      
         - /srv/smb/container-server
         - /srv/smb/nextcloud-server
-
         
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -63,10 +60,10 @@
         state: mounted
       loop:
         - { src: "/srv/nvme/backup", dest: "/srv/nfs/backup" }
-        - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server" }
-        - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server" }
-        - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server" }
         - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
+        - { src: "/srv/nvme/infra-server", dest: "/srv/smb/infra-server"}
+        - { src: "/srv/nvme/container-server", dest: "/srv/smb/container-server"}
+        - { src: "/srv/nvme/nextcloud-server", dest: "/srv/smb/nextcloud-server"}
         
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
@@ -80,14 +77,12 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/nextcloud-server btrfs subvol=@srv_nvme_nextcloud-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-       
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
-        - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
-        - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
-        - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
+        - "/srv/nvme/infra-server /srv/smb/infra-server none bind 0 0"
+        - "/srv/nvme/container-server /srv/smb/container-server none bind 0 0"
+        - "/srv/nvme/nextcloud-server /srv/smb/nextcloud-server none bind 0 0"
                
     - name: Install required packages
       ansible.builtin.apt:
