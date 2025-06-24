@@ -27,6 +27,8 @@
           - apparmor-utils
           - apparmor-profiles
           - pam_cracklib
+          - debsums
+          - apt-show-versions
         state: present
         update_cache: yes
 
