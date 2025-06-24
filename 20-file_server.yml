@@ -105,6 +105,7 @@
           - rsync
           - fastfetch
           - lynis
+          - pam_cracklib
         state: present
         update_cache: yes
 

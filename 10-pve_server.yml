@@ -261,6 +261,7 @@
           - debsums
           - apt-show-versions
           - rkhunter
+          - pam_cracklib
         state: present
         update_cache: yes
 

@@ -28,6 +28,7 @@
           - apparmor-utils
           - apparmor-profiles
           - jq
+          - pam_cracklib
         state: present
         update_cache: yes
 

@@ -26,6 +26,7 @@
           - auditd
           - apparmor-utils
           - apparmor-profiles
+          - pam_cracklib
         state: present
         update_cache: yes
 

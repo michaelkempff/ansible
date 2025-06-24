@@ -25,7 +25,11 @@
           - mc
           - nfs-kernel-server
           - firewalld
-          - fail2ban         
+          - fail2ban
+          - apt-listbugs
+          - needrestart
+          - debian-goodies
+          - pam_cracklib         
         state: present
         update_cache: yes
 
