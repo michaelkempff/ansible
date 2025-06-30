@@ -26,7 +26,6 @@
           - auditd
           - apparmor-utils
           - apparmor-profiles
-          - pam_cracklib
           - debsums
           - apt-show-versions
         state: present

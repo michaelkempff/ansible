@@ -29,7 +29,6 @@
           - apt-listbugs
           - needrestart
           - debian-goodies
-          - pam_cracklib         
         state: present
         update_cache: yes
 
