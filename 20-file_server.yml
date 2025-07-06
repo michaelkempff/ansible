@@ -313,6 +313,19 @@
         - nextcloud
         - michael
 
+    - name: Ensure share directories have correct owner/group and mode
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+        recurse: no
+      loop:
+        - { path: "/srv/smb/michael",       owner: michael,  group: michael,  mode: "2770" }
+        - { path: "/srv/smb/infra-server",  owner: infra,     group: infra,     mode: "2770" }
+        - { path: "/srv/smb/container-server", owner: container, group: container, mode: "2770" }
+        - { path: "/srv/smb/nextcloud-server", owner: nextcloud, group: nextcloud, mode: "2770" }
+
     - name: Deploy custom smb.conf
       ansible.builtin.template:
         src: file_server_smb.conf.j2
