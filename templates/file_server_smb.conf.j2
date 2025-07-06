@@ -22,6 +22,16 @@
   # ID mapping
   idmap config * : backend = tdb
 
+[michael]
+   comment = Michael's storage
+   path = /srv/smb/michael
+   valid users = michael
+   read only = no
+   browsable = yes
+   create mask = 0660
+   directory mask = 2770
+   force user = michael
+   force group = michael
 
 [infra-server]
    comment = Infra-server storage
