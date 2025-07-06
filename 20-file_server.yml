@@ -2,10 +2,10 @@
 - name: Configure file server
   hosts: file_server
   become: true  # Run with sudo privileges
-  vars_prompt:
-    - name: "ssh_key_passphrase"
-      prompt: "Enter SSH key passphrase for user michael (leave blank for no passphrase)"
-      private: yes
+  
+  vars_files:
+    - group_vars/file_server/secrets.yml
+    - group_vars/file_server/common.yml
 
   tasks:
     - name: Create required directories (excluding Btrfs-managed paths)
@@ -104,8 +104,7 @@
           - git
           - rsync
           - fastfetch
-          - lynis
-          - pam_cracklib
+          - lynis          
         state: present
         update_cache: yes
 
@@ -211,10 +210,6 @@
       register: michael_public_key
       become_user: michael
 
-    - name: Display public SSH key for michael
-      debug:
-        msg: "{{ michael_public_key.content | b64decode }}"
-
     - name: Create /home/michael/build directory with proper ownership
       file:
         path: /home/michael/build
@@ -283,11 +278,53 @@
           udp-port=32765
       notify: Restart NFS
 
+    - name: Ensure system users for shares exist
+      ansible.builtin.user:
+        name: "{{ item }}"
+        shell: /bin/bash
+        groups: sambashare
+        append: yes
+      loop:
+        - infra
+        - container
+        - nextcloud
+
+    - name: Create Samba users for each share
+      ansible.builtin.shell: |
+        echo -e "{{ lookup('vars', item + '_smb_password') }}\n{{ lookup('vars', item + '_smb_password') }}" \
+          | smbpasswd -s -a {{ item }}
+      args:
+        executable: /bin/bash
+      loop:
+        - infra
+        - container
+        - nextcloud
+
+    - name: Deploy custom smb.conf
+      ansible.builtin.template:
+        src: file_server_smb.conf.j2
+        dest: /etc/samba/smb.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Samba
+
+    - name: Display public SSH key for michael
+      debug:
+        msg: "{{ michael_public_key.content | b64decode }}"  
+
   handlers:
+    
     - name: Restart NFS
       ansible.builtin.systemd:
         name: nfs-server
         state: restarted
+
+    - name: Restart Samba
+      ansible.builtin.systemd:
+        name: smbd
+        state: restarted
+        enabled: yes
 
 
 
