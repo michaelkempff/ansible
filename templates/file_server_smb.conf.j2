@@ -5,10 +5,10 @@
   disable spoolss  = yes
   load printers    = no
   printing         = bsd
-  disable spoolss  = yes
+  printcap name    = /dev/null
 
   # Hardening: only SMB3_11 and NTLMv2
-  min protocol     = SMB3_11
+  server min protocol = SMB3_11
   ntlm auth        = no
 
   # Enforce signing if required
