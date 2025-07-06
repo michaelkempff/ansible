@@ -158,6 +158,8 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
+        - { zone: "servers", service: "samba" }
+        - { zone: "10G", service: "samba" }
         - { zone: "nfs", service: "nfs" }
         - { zone: "nfs", service: "mountd" }
         - { zone: "nfs", service: "rpc-bind" }
@@ -287,6 +289,12 @@
         - infra
         - container
         - nextcloud
+
+    - name: Ensure michael is also in the sambashare group
+      ansible.builtin.user:
+        name: michael
+        groups: sambashare
+        append: yes
 
     - name: Create Samba users for each share
       ansible.builtin.shell: |
