@@ -311,6 +311,7 @@
         - infra
         - container
         - nextcloud
+        - michael
 
     - name: Deploy custom smb.conf
       ansible.builtin.template:
