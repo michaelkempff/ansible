@@ -158,7 +158,6 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        - { zone: "10G", service: "samba" }
         - { zone: "nfs", service: "nfs" }
         - { zone: "nfs", service: "mountd" }
         - { zone: "nfs", service: "rpc-bind" }
