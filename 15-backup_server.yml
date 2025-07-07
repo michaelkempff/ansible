@@ -3,10 +3,22 @@
   hosts: backup_server
   become: yes
 
-  vars:
-    pbs_repo: "deb http://download.proxmox.com/debian/pbs bookworm pbs-no-subscription"
+  vars_files:
+    
+    - group_vars/file_server/secrets.yml
+    - group_vars/file_server/common.yml 
 
   tasks:
+
+    - name: Set root’s Linux password
+      ansible.builtin.user:
+        name: root
+        password: "{{ root_password | password_hash('sha512') }}"
+
+    - name: Set michael’s Linux password
+      ansible.builtin.user:
+        name: michael
+        password: "{{ michael_password | password_hash('sha512') }}"
 
     - name: Disable Proxmox Backup Server enterprise repository
       ansible.builtin.file:
@@ -29,6 +41,7 @@
           - apt-listbugs
           - needrestart
           - debian-goodies
+          - neofetch
         state: present
         update_cache: yes
 

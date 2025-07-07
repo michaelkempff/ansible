@@ -3,7 +3,9 @@
   become: yes
   
   vars_files:
-  - infra_server_vars.yml
+
+    - group_vars/file_server/secrets.yml
+    - group_vars/file_server/common.yml
 
   tasks:
 
@@ -21,14 +23,14 @@
           - lsof
           - mc
           - firewalld
-          - nfs-common
+          - smbclient 
+          - cifs-utils 
           - podman
           - podman-docker
           - auditd
           - apparmor-utils
           - apparmor-profiles
-          - jq
-          - pam_cracklib
+          - jq          
         state: present
         update_cache: yes
 
@@ -70,7 +72,7 @@
       loop:
         - { zone: "servers", interface: "eth0" }
         - { zone: "10G", interface: "eth1" }
-        - { zone: "file-server", interface: "eth3" }
+        - { zone: "smb", interface: "eth3" }
         - { zone: "containers", interface: "eth2" }
 
     - name: Allow required services in Firewalld zones
@@ -85,6 +87,7 @@
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
+        - { zone: "smb", service: "samba-client" }
         - { zone: "10G", service: "dns" }
         - { zone: "10G", service: "dhcp" }
         - { zone: "10G", service: "ntp" }
@@ -131,35 +134,21 @@
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
 
-    - name: Ensure user 'podman' exists with a specific password
+    - name: Ensure user 'infra' exists with a specific password
       ansible.builtin.user:
-        name: podman
+        name: infra
         shell: /bin/bash
-        home: /home/podman
+        home: /home/infra
         state: present
         create_home: true
-        password: "{{ podman_password_hash }}" 
+        password: "{{ infra_password }}" 
         
-    - name: Ensure podman has authorized SSH key
+    - name: Ensure infra has authorized SSH key
       ansible.posix.authorized_key:
-        user: podman
+        user: infra
         state: present
-        key: "{{ podman_ssh_pubkey }}"
+        key: "{{ infra_ssh_pubkey }}"
 
-    - name: Mount NFS share for Podman
-      ansible.posix.mount:
-        path: /home/podman/data
-        src: 10.14.112.20:/srv/nfs/infra-server
-        fstype: nfs
-        opts: noatime,vers=4.2
-        state: mounted
-
-    - name: Ensure NFS mount is persistent in /etc/fstab
-      ansible.builtin.lineinfile:
-        path: /etc/fstab
-        line: "10.14.112.20:/srv/nfs/infra-server /home/podman/data nfs noatime,_netdev,vers=4.2,anonuid=166536,anongid=166536 0 0"
-        state: present
-    
     - name: Ensure aliases are present in .bashrc for root, podman and michael
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
@@ -213,22 +202,74 @@
         mode: '0755'
       notify: Controleer docker-compose
 
-    - name: Get podman user's UID
-      command: id -u podman
-      register: podman_uid_cmd
+    - name: Get infra user's UID
+      command: id -u infra
+      register: infra_uid_cmd
       changed_when: false
 
-    - name: Set podman_uid fact
+    - name: Set infra_uid fact
       set_fact:
         podman_uid: "{{ podman_uid_cmd.stdout }}"
 
-    - name: Enable linger for podman user so socket survives reboot
-      command: loginctl enable-linger podman
+    - name: Enable linger for infra user so socket survives reboot
+      command: loginctl enable-linger infra
 
-    - name: Ensure podman.socket is enabled and running for podman user
+    - name: Ensure podman.socket is enabled and running for infra user
       command: >
-        sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
+        sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ infra_uid }}
         systemctl --user enable --now podman.socket
+
+    - name: Get infra user's UID
+      ansible.builtin.command:
+        cmd: "id -u infra"
+      register: infra_uid_cmd
+      changed_when: false
+
+    - name: Get infra user's GID
+      ansible.builtin.command:
+        cmd: "id -g infra"
+      register: infra_gid_cmd
+      changed_when: false
+
+    - name: Create CIFS credentials file for infra
+      ansible.builtin.copy:
+        dest: /etc/samba/credentials/infra
+        content: |
+          username=infra
+          password={{ infra_smb_password }}
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Ensure mountpoint directory exists
+      ansible.builtin.file:
+        path: /home/infra/data
+        state: directory
+        owner: infra
+        group: infra
+        mode: '2770'
+
+    - name: Mount infra-server Samba share for Podman
+      ansible.builtin.mount:
+        path: /home/infra/data
+        src: "//10.13.112.20/infra-server"
+        fstype: cifs
+        opts: >-
+          credentials=/etc/samba/credentials/infra,
+          uid={{ infra_uid_cmd.stdout }},
+          gid={{ infra_gid_cmd.stdout }},
+          vers=3.1.1,
+          sec=ntlmssp,
+          noperm,
+          file_mode=0660,
+          dir_mode=02770,
+          _netdev,
+          noauto,
+          x-systemd.automount,
+          x-systemd.idle-timeout=1min,
+          x-systemd.requires=network-online.target,
+          x-systemd.after=network-online.target
+        state: mounted
 
     - name: Reboot the server
       ansible.builtin.reboot:

@@ -12,12 +12,12 @@
     - name: Set root’s Linux password
       ansible.builtin.user:
         name: root
-        password: "{{ root_password_hash }}"
+        password: "{{ root_password | password_hash('sha512') }}"
 
     - name: Set michael’s Linux password
       ansible.builtin.user:
         name: michael
-        password: "{{ michael_password_hash }}"
+        password: "{{ michael_password | password_hash('sha512') }}"
 
     - name: Disable subscription nag in proxmox-widget-toolkit
       replace:
@@ -266,8 +266,7 @@
           - debian-goodies
           - debsums
           - apt-show-versions
-          - rkhunter
-          - pam_cracklib
+          - rkhunter          
         state: present
         update_cache: yes
 

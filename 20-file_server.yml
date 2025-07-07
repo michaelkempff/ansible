@@ -8,6 +8,7 @@
     - group_vars/file_server/common.yml
 
   tasks:
+
     - name: Create required directories (excluding Btrfs-managed paths)
       ansible.builtin.file:
         path: "{{ item }}"
@@ -262,9 +263,8 @@
       ansible.builtin.blockinfile:
         path: /etc/exports
         block: |
-          /srv/nfs 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.55(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/iso 10.10.112.10(rw,sync,no_subtree_check,no_root_squash)  10.10.112.11(rw,sync,no_subtree_check,no_root_squash) 10.10.112.50(rw,sync,no_subtree_check,no_root_squash) 10.10.112.51(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/backup 10.10.112.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/iso 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.12.112.11(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/backup 10.12.112.0/24(rw,sync,no_subtree_check,no_root_squash)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
