@@ -53,7 +53,7 @@
       loop:
         - servers
         - 10G
-        - file-server
+        - smb
         - containers
       when: "item not in firewalld_existing_zones.stdout"
 
