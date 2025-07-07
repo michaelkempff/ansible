@@ -187,6 +187,11 @@
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
 
+    - name: Set michael’s Linux password
+      ansible.builtin.user:
+        name: michael
+        password: "{{ michael_password | password_hash('sha512') }}"
+
     - name: Check if SSH private key exists for user michael
       ansible.builtin.stat:
         path: /home/michael/.ssh/id_rsa
