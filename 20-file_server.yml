@@ -4,6 +4,7 @@
   become: true  # Run with sudo privileges
   
   vars_files:
+    
     - group_vars/file_server/secrets.yml
     - group_vars/file_server/common.yml
 

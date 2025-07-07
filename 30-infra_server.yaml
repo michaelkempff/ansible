@@ -9,6 +9,11 @@
 
   tasks:
 
+    - name: Set michael’s Linux password
+      ansible.builtin.user:
+        name: michael
+        password: "{{ michael_password | password_hash('sha512') }}"
+
     - name: Install required packages
       apt:
         name:
@@ -139,9 +144,11 @@
         name: infra
         shell: /bin/bash
         home: /home/infra
-        state: present
-        create_home: true
-        password: "{{ infra_password }}" 
+        
+    - name: Set infra’s Linux password
+      ansible.builtin.user:
+        name: infra
+        password: "{{ infra_password | password_hash('sha512') }}"
         
     - name: Ensure infra has authorized SSH key
       ansible.posix.authorized_key:
@@ -149,7 +156,7 @@
         state: present
         key: "{{ infra_ssh_pubkey }}"
 
-    - name: Ensure aliases are present in .bashrc for root, podman and michael
+    - name: Ensure aliases are present in .bashrc for root, infra and michael
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
         line: "{{ item.alias }}"
@@ -171,12 +178,12 @@
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias c='clear'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias h='history'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias c='clear'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias h='history'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias ports='ss -tulpn'" }
 
     - name: Fetch latest Docker Compose release via GitHub API
       uri:
@@ -209,27 +216,33 @@
 
     - name: Set infra_uid fact
       set_fact:
-        podman_uid: "{{ podman_uid_cmd.stdout }}"
-
-    - name: Enable linger for infra user so socket survives reboot
-      command: loginctl enable-linger infra
-
-    - name: Ensure podman.socket is enabled and running for infra user
-      command: >
-        sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ infra_uid }}
-        systemctl --user enable --now podman.socket
-
-    - name: Get infra user's UID
-      ansible.builtin.command:
-        cmd: "id -u infra"
-      register: infra_uid_cmd
-      changed_when: false
+        infra_uid: "{{ infra_uid_cmd.stdout }}"
 
     - name: Get infra user's GID
       ansible.builtin.command:
         cmd: "id -g infra"
       register: infra_gid_cmd
       changed_when: false
+
+    - name: Set infra_gid fact
+      ansible.builtin.set_fact:
+        infra_gid: "{{ infra_gid_cmd.stdout }}"
+
+    - name: Enable linger for infra user so socket survives reboot
+      command: loginctl enable-linger infra
+
+    - name: Ensure podman.socket is enabled and running for infra user
+      ansible.builtin.command: >
+        sudo -u infra env XDG_RUNTIME_DIR=/run/user/{{ infra_uid }}
+        systemctl --user enable --now podman.socket      
+
+    - name: Ensure Samba credentials directory exists
+      ansible.builtin.file:
+        path: /etc/samba/credentials
+        state: directory
+        owner: root
+        group: root
+        mode: '0700'
 
     - name: Create CIFS credentials file for infra
       ansible.builtin.copy:
@@ -249,27 +262,27 @@
         group: infra
         mode: '2770'
 
-    - name: Mount infra-server Samba share for Podman
+    - name: Ensure infra-server CIFS entry is in fstab
       ansible.builtin.mount:
         path: /home/infra/data
         src: "//10.13.112.20/infra-server"
         fstype: cifs
-        opts: >-
-          credentials=/etc/samba/credentials/infra,
-          uid={{ infra_uid_cmd.stdout }},
-          gid={{ infra_gid_cmd.stdout }},
-          vers=3.1.1,
-          sec=ntlmssp,
-          noperm,
-          file_mode=0660,
-          dir_mode=02770,
-          _netdev,
-          noauto,
-          x-systemd.automount,
-          x-systemd.idle-timeout=1min,
-          x-systemd.requires=network-online.target,
-          x-systemd.after=network-online.target
+        opts: "credentials=/etc/samba/credentials/infra,uid={{ infra_uid }},gid={{ infra_gid }},vers=3.1.1,sec=ntlmssp,noperm,file_mode=0660,dir_mode=02770,_netdev,nofail"
+        state: present
+
+    - name: Reload systemd to pick up fstab changes
+      ansible.builtin.command: systemctl daemon-reload
+      become: yes
+
+
+    - name: Mount infra-server Samba share permanently
+      ansible.builtin.mount:
+        path: /home/infra/data
+        src: "//10.13.112.20/infra-server"
+        fstype: cifs
+        opts: "credentials=/etc/samba/credentials/infra,uid={{ infra_uid_cmd.stdout }},gid={{ infra_gid_cmd.stdout }},vers=3.1.1,sec=ntlmssp,noperm,file_mode=0660,dir_mode=02770,_netdev,nofail"
         state: mounted
+      become: yes
 
     - name: Reboot the server
       ansible.builtin.reboot:
