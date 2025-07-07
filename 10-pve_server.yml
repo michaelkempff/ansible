@@ -3,15 +3,21 @@
   hosts: pve_server
   become: yes
 
-  vars:
-    
-    node_name: "{{ ansible_hostname }}"
-    primary_dns: 1.1.1.1      
-    secondary_dns: 8.8.8.8
-    search_domain: home.arpa
-    grub_cfg: /etc/default/grub     
+  vars_files:
+    - group_vars/file_server/secrets.yml
+    - group_vars/file_server/common.yml 
 
   tasks:
+
+    - name: Set root’s Linux password
+      ansible.builtin.user:
+        name: root
+        password: "{{ root_password_hash }}"
+
+    - name: Set michael’s Linux password
+      ansible.builtin.user:
+        name: michael
+        password: "{{ michael_password_hash }}"
 
     - name: Disable subscription nag in proxmox-widget-toolkit
       replace:
@@ -542,6 +548,8 @@
         content: |
           #!/usr/bin/env bash
           set -e
+          rm -Rf creation-scripts
+          rm -Rf proxmox-config-files
           git clone git@github.com:michaelkempff/creation-scripts.git
           git clone git@github.com:michaelkempff/proxmox-config-files.git
 

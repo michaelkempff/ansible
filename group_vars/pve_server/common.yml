@@ -1,0 +1,5 @@
+node_name: "{{ ansible_hostname }}"
+primary_dns: 1.1.1.1
+secondary_dns: 8.8.8.8
+search_domain: home.arpa
+grub_cfg: /etc/default/grub
