@@ -32,16 +32,5 @@
    directory mask = 2770
    force user = michael
    force group = michael
-
-#[infra-server]
-#   comment = Infra-server storage
-#   path = /srv/smb/infra-server
-#   valid users = infra
-#   read only = no
-#   browsable = yes
-#   create mask = 0660
-#   directory mask = 2770
-#   force user = infra
-#   force group = infra
-#   hosts allow = 127.0.0.1 10.13.112.30
-#   hosts deny  = ALL
+   hosts allow = 127.0.0.1 10.10.116.50 10.10.112.55 10.10.111.50
+   hosts deny  = ALL
