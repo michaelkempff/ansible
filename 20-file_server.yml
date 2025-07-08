@@ -267,7 +267,7 @@
         block: |
           /srv/nfs/iso 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.12.112.11(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/backup 10.12.112.0/24(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/infra-server/pihole-clients (rw,sync,no_subtree_check,fsid=0)
+          /srv/nfs/infra-server/pihole-clients 10.12.112.30(rw,sync,no_subtree_check,fsid=0)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
