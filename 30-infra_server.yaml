@@ -243,9 +243,27 @@
         group: podman
         mode: '0644'
 
-    
+    - name: Create mount point
+      file:
+        path: /home/podman/compose
+        state: directory
+        mode: '0755'
 
-    
+    - name: Mount NFS-share en voeg toe aan /etc/fstab
+      mount:
+        path: /home/podman/compose
+        src: 10.12.112.20:/srv/nfs/infra-server/compose
+        fstype: nfs
+        opts: rw,vers=4
+        state: mounted
+        dump: 0  
+        passno: 0
+
+    - name: Start and enable nfs-idmapd service
+      service:
+        name: nfs-idmapd
+        state: started
+        enabled: yes
 
     - name: Reboot the server
       ansible.builtin.reboot:
