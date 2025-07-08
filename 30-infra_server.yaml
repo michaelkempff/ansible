@@ -234,7 +234,16 @@
     - name: Ensure podman.socket is enabled and running for infra user
       ansible.builtin.command: >
         sudo -u infra env XDG_RUNTIME_DIR=/run/user/{{ infra_uid }}
-        systemctl --user enable --now podman.socket      
+        systemctl --user enable --now podman.socket
+
+    - name: Ensure infra's bashrc exports DOCKER_HOST
+      lineinfile:
+        path: /home/infra/.bashrc
+        line: 'export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock'
+        create: yes
+        owner: infra
+        group: infra
+        mode: '0644'
 
     - name: Ensure Samba credentials directory exists
       ansible.builtin.file:
@@ -273,7 +282,6 @@
     - name: Reload systemd to pick up fstab changes
       ansible.builtin.command: systemctl daemon-reload
       become: yes
-
 
     - name: Mount infra-server Samba share permanently
       ansible.builtin.mount:
