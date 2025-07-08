@@ -4,8 +4,8 @@
   
   vars_files:
 
-    - group_vars/file_server/secrets.yml
-    - group_vars/file_server/common.yml
+    - group_vars/infra_server/secrets.yml
+    - group_vars/infra_server/common.yml
 
   tasks:
 
@@ -57,7 +57,7 @@
       loop:
         - servers
         - 10G
-        - smb
+        - nfs
         - containers
       when: "item not in firewalld_existing_zones.stdout"
 
@@ -76,10 +76,9 @@
       loop:
         - { zone: "servers", interface: "eth0" }
         - { zone: "10G", interface: "eth1" }
-        - { zone: "smb", interface: "eth3" }
+        - { zone: "nfs", interface: "eth3" }
         - { zone: "containers", interface: "eth2" }
-        - { zone: "nfs", interface: "eth4" }
-
+        
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -138,24 +137,24 @@
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
 
-    - name: Ensure user 'infra' exists with a specific password
+    - name: Ensure user 'podman' exists with a specific password
       ansible.builtin.user:
-        name: infra
+        name: podman
         shell: /bin/bash
-        home: /home/infra
+        home: /home/podman
         
-    - name: Set infra’s Linux password
+    - name: Set podman’s Linux password
       ansible.builtin.user:
-        name: infra
-        password: "{{ infra_password | password_hash('sha512') }}"
+        name: podman
+        password: "{{ podman_password | password_hash('sha512') }}"
         
-    - name: Ensure infra has authorized SSH key
+    - name: Ensure podman has authorized SSH key
       ansible.posix.authorized_key:
-        user: infra
+        user: podman
         state: present
-        key: "{{ infra_ssh_pubkey }}"
+        key: "{{ podman_ssh_pubkey }}"
 
-    - name: Ensure aliases are present in .bashrc for root, infra and michael
+    - name: Ensure aliases are present in .bashrc for root, podman and michael
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
         line: "{{ item.alias }}"
@@ -177,12 +176,12 @@
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
         - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias c='clear'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias h='history'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'infra', bashrc: '/home/infra/.bashrc', alias: "alias ports='ss -tulpn'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias c='clear'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias h='history'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
 
     - name: Fetch latest Docker Compose release via GitHub API
       uri:
@@ -208,40 +207,40 @@
         mode: '0755'
       notify: Controleer docker-compose
 
-    - name: Get infra user's UID
-      command: id -u infra
-      register: infra_uid_cmd
+    - name: Get podman user's UID
+      command: id -u podman
+      register: podman_uid_cmd
       changed_when: false
 
-    - name: Set infra_uid fact
+    - name: Set podman_uid fact
       set_fact:
-        infra_uid: "{{ infra_uid_cmd.stdout }}"
+        podman_uid: "{{ podman_uid_cmd.stdout }}"
 
-    - name: Get infra user's GID
+    - name: Get podman user's GID
       ansible.builtin.command:
-        cmd: "id -g infra"
-      register: infra_gid_cmd
+        cmd: "id -g podman"
+      register: podman_gid_cmd
       changed_when: false
 
-    - name: Set infra_gid fact
+    - name: Set podman_gid fact
       ansible.builtin.set_fact:
-        infra_gid: "{{ infra_gid_cmd.stdout }}"
+        podman_gid: "{{ podman_gid_cmd.stdout }}"
 
-    - name: Enable linger for infra user so socket survives reboot
-      command: loginctl enable-linger infra
+    - name: Enable linger for podman user so socket survives reboot
+      command: loginctl enable-linger podman
 
-    - name: Ensure podman.socket is enabled and running for infra user
+    - name: Ensure podman.socket is enabled and running for podman user
       ansible.builtin.command: >
-        sudo -u infra env XDG_RUNTIME_DIR=/run/user/{{ infra_uid }}
+        sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
         systemctl --user enable --now podman.socket
 
-    - name: Ensure infra's bashrc exports DOCKER_HOST
+    - name: Ensure podman's bashrc exports DOCKER_HOST
       lineinfile:
-        path: /home/infra/.bashrc
+        path: /home/podman/.bashrc
         line: 'export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock'
         create: yes
-        owner: infra
-        group: infra
+        owner: podman
+        group: podman
         mode: '0644'
 
     
