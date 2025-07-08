@@ -254,7 +254,7 @@
         path: /home/podman/compose
         src: 10.12.112.20:/srv/nfs/infra-server/compose
         fstype: nfs
-        opts: rw,vers=4
+        opts: rw
         state: mounted
         dump: 0  
         passno: 0
