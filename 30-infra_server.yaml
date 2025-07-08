@@ -28,7 +28,8 @@
           - lsof
           - mc
           - firewalld
-          - nfs-common 
+          - nfs-common
+          - libnfsidmap1 
           - podman
           - podman-docker
           - auditd
