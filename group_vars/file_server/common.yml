@@ -1,0 +1,4 @@
+export_dir: /srv/nfs
+clients: 10.12.112.0/24
+nobody_uid: 65534    # meestal nobody
+nobody_gid: 65534    # meestal nogmaals nobody
