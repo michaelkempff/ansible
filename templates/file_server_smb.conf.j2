@@ -33,37 +33,15 @@
    force user = michael
    force group = michael
 
-[infra-server]
-   comment = Infra-server storage
-   path = /srv/smb/infra-server
-   valid users = infra
-   read only = no
-   browsable = yes
-   create mask = 0660
-   directory mask = 2770
-   force user = infra
-   force group = infra
-   hosts allow = 127.0.0.1 10.13.112.30
-   hosts deny  = ALL
-
-[container-server]
-   comment = Container-server storage
-   path = /srv/smb/container-server
-   valid users = container
-   read only = no
-   browsable = yes
-   create mask = 0660
-   directory mask = 2770
-   force user = container
-   force group = container
-
-[nextcloud-server]
-   comment = Nextcloud data
-   path = /srv/smb/nextcloud-server
-   valid users = nextcloud
-   read only = no
-   browsable = yes
-   create mask = 0660
-   directory mask = 2770
-   force user = nextcloud
-   force group = nextcloud
+#[infra-server]
+#   comment = Infra-server storage
+#   path = /srv/smb/infra-server
+#   valid users = infra
+#   read only = no
+#   browsable = yes
+#   create mask = 0660
+#   directory mask = 2770
+#   force user = infra
+#   force group = infra
+#   hosts allow = 127.0.0.1 10.13.112.30
+#   hosts deny  = ALL

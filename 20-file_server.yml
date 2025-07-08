@@ -24,10 +24,10 @@
         - /srv/mnt   # Directory for NFS mounts
         - /srv/nfs/backup
         - /srv/nfs/iso
+        - /srv/nfs/infra-server      
+        - /srv/nfs/container-server
+        - /srv/nfs/nextcloud-server
         - /srv/smb/michael
-        - /srv/smb/infra-server      
-        - /srv/smb/container-server
-        - /srv/smb/nextcloud-server
         
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -66,9 +66,9 @@
         - { src: "/srv/nvme/backup", dest: "/srv/nfs/backup" }
         - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
         - { src: "/srv/nvme/michael", dest: "/srv/smb/michael"}
-        - { src: "/srv/nvme/infra-server", dest: "/srv/smb/infra-server"}
-        - { src: "/srv/nvme/container-server", dest: "/srv/smb/container-server"}
-        - { src: "/srv/nvme/nextcloud-server", dest: "/srv/smb/nextcloud-server"}
+        - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server"}
+        - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server"}
+        - { src: "/srv/nvme/nextcloud-server", dest: "/srv/nfs/nextcloud-server"}
         
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
@@ -87,9 +87,9 @@
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
-        - "/srv/nvme/infra-server /srv/smb/infra-server none bind 0 0"
-        - "/srv/nvme/container-server /srv/smb/container-server none bind 0 0"
-        - "/srv/nvme/nextcloud-server /srv/smb/nextcloud-server none bind 0 0"
+        - "/srv/nvme/infra-server /srv/nfs/infra-server none bind 0 0"
+        - "/srv/nvme/container-server /srv/nfs/container-server none bind 0 0"
+        - "/srv/nvme/nextcloud-server /srv/nfs/nextcloud-server none bind 0 0"
                
     - name: Install required packages
       ansible.builtin.apt:
@@ -97,6 +97,7 @@
           - samba
           - smbclient
           - python3-samba
+          - cifs-utils
           - htop
           - iotop
           - strace
@@ -266,6 +267,7 @@
         block: |
           /srv/nfs/iso 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.12.112.11(rw,sync,no_subtree_check,no_root_squash)
           /srv/nfs/backup 10.12.112.0/24(rw,sync,no_subtree_check,no_root_squash)
+          /srv/nfs/infra-server/pihole-clients (rw,sync,no_subtree_check,fsid=0)
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
@@ -290,18 +292,7 @@
           udp-port=32765
       notify: Restart NFS
 
-    - name: Ensure system users for shares exist
-      ansible.builtin.user:
-        name: "{{ item }}"
-        shell: /bin/bash
-        groups: sambashare
-        append: yes
-      loop:
-        - infra
-        - container
-        - nextcloud
-
-    - name: Ensure michael is also in the sambashare group
+    - name: Ensure michael is in the sambashare group
       ansible.builtin.user:
         name: michael
         groups: sambashare
@@ -314,9 +305,6 @@
       args:
         executable: /bin/bash
       loop:
-        - infra
-        - container
-        - nextcloud
         - michael
 
     - name: Ensure share directories have correct owner/group and mode
@@ -328,10 +316,7 @@
         recurse: no
       loop:
         - { path: "/srv/smb/michael",       owner: michael,  group: michael,  mode: "2770" }
-        - { path: "/srv/smb/infra-server",  owner: infra,     group: infra,     mode: "2770" }
-        - { path: "/srv/smb/container-server", owner: container, group: container, mode: "2770" }
-        - { path: "/srv/smb/nextcloud-server", owner: nextcloud, group: nextcloud, mode: "2770" }
-
+        
     - name: Deploy custom smb.conf
       ansible.builtin.template:
         src: file_server_smb.conf.j2
