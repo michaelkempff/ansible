@@ -272,6 +272,22 @@
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
+    - name: Add Nobody-User in [Mapping]
+      ansible.builtin.ini_file:
+        path: /etc/idmapd.conf
+        section: Mapping
+        option: Nobody-User
+        value: nobody
+        backup: yes
+
+    - name: Add Nobody-Group in [Mapping]
+      ansible.builtin.ini_file:
+        path: /etc/idmapd.conf
+        section: Mapping
+        option: Nobody-Group
+        value: nobody
+        backup: yes
+
     - name: Export NFS shares
       ansible.builtin.command: exportfs -ra
       changed_when: false
