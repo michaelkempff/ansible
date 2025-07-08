@@ -28,8 +28,7 @@
           - lsof
           - mc
           - firewalld
-          - smbclient 
-          - cifs-utils 
+          - nfs-common 
           - podman
           - podman-docker
           - auditd
@@ -79,6 +78,7 @@
         - { zone: "10G", interface: "eth1" }
         - { zone: "smb", interface: "eth3" }
         - { zone: "containers", interface: "eth2" }
+        - { zone: "nfs", interface: "eth4" }
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -92,7 +92,6 @@
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
-        - { zone: "smb", service: "samba-client" }
         - { zone: "10G", service: "dns" }
         - { zone: "10G", service: "dhcp" }
         - { zone: "10G", service: "ntp" }
@@ -245,52 +244,9 @@
         group: infra
         mode: '0644'
 
-    - name: Ensure Samba credentials directory exists
-      ansible.builtin.file:
-        path: /etc/samba/credentials
-        state: directory
-        owner: root
-        group: root
-        mode: '0700'
+    
 
-    - name: Create CIFS credentials file for infra
-      ansible.builtin.copy:
-        dest: /etc/samba/credentials/infra
-        content: |
-          username=infra
-          password={{ infra_smb_password }}
-        owner: root
-        group: root
-        mode: '0600'
-
-    - name: Ensure mountpoint directory exists
-      ansible.builtin.file:
-        path: /home/infra/data
-        state: directory
-        owner: infra
-        group: infra
-        mode: '2770'
-
-    - name: Ensure infra-server CIFS entry is in fstab
-      ansible.builtin.mount:
-        path: /home/infra/data
-        src: "//10.13.112.20/infra-server"
-        fstype: cifs
-        opts: "credentials=/etc/samba/credentials/infra,uid={{ infra_uid }},gid={{ infra_gid }},vers=3.1.1,sec=ntlmssp,noperm,file_mode=0660,dir_mode=02770,_netdev,nofail"
-        state: present
-
-    - name: Reload systemd to pick up fstab changes
-      ansible.builtin.command: systemctl daemon-reload
-      become: yes
-
-    - name: Mount infra-server Samba share permanently
-      ansible.builtin.mount:
-        path: /home/infra/data
-        src: "//10.13.112.20/infra-server"
-        fstype: cifs
-        opts: "credentials=/etc/samba/credentials/infra,uid={{ infra_uid_cmd.stdout }},gid={{ infra_gid_cmd.stdout }},vers=3.1.1,sec=ntlmssp,noperm,file_mode=0660,dir_mode=02770,_netdev,nofail"
-        state: mounted
-      become: yes
+    
 
     - name: Reboot the server
       ansible.builtin.reboot:
