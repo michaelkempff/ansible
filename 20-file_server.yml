@@ -265,10 +265,11 @@
       ansible.builtin.blockinfile:
         path: /etc/exports
         block: |
-          /srv/nfs/iso 10.12.112.10(rw,sync,no_subtree_check,no_root_squash)  10.12.112.11(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/backup 10.12.112.0/24(rw,sync,no_subtree_check,no_root_squash)
-          /srv/nfs/infra-server/pihole-clients 10.12.112.30(rw,sync,no_subtree_check,fsid=0)
-          /srv/nfs/infra-server/compose 10.12.112.30(rw,sync,no_subtree_check,fsid=0)
+          /srv/nfs 10.12.112.50(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.55(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/backup 10.10.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/infra-server/pihole-clients 10.12.112.30(rw,fsid=3,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/infra-server/compose 10.12.112.30(rw,fsid=4,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})  
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
