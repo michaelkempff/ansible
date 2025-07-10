@@ -260,12 +260,6 @@
         dump: 0  
         passno: 0
 
-    - name: Start and enable nfs-idmapd service
-      service:
-        name: nfs-idmapd
-        state: started
-        enabled: yes
-
     - name: Reboot the server
       ansible.builtin.reboot:
         reboot_timeout: 600     # wait up to 10 minutes for reboot
