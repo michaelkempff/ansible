@@ -64,8 +64,7 @@
         - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
         - { src: "/srv/nvme/michael", dest: "/srv/smb/michael"}
         - { src: "/srv/nvme/infra-server", dest: "/srv/nfs/infra-server"}
-        - { src: "/srv/nvme/container-server", dest: "/srv/nfs/container-server"}
-                
+        
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
@@ -340,7 +339,7 @@
         state: mounted
       loop:
         - { path: "/home/podman/data/ncdata", opts: "subvol=@srv_nvme_ncdata,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/sannzbd", opts: "subvol=@srv_nvme_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/home/podman/data/sabnzbd", opts: "subvol=@srv_nvme_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
             
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
