@@ -2,3 +2,4 @@ export_dir: /srv/nfs
 clients: 10.12.112.0/24
 nobody_uid: 65534    # meestal nobody
 nobody_gid: 65534    # meestal nogmaals nobody
+podman_ssh_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaO0im4N8eEB2LiqldIsbm6HRjAnCE1MN4QMzL5viX5 michael@michael-workstation"

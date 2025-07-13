@@ -251,6 +251,14 @@
              if (compose_release.json is defined and compose_release.json.tag_name is defined)
              else 'v2.18.1' }}
 
+      - name: Deploy compose file
+        ansible.builtin.template:
+          src: infra_server_compose.yml.j2
+          dest: /home/podman/compose/compose.yml
+          owner: podman
+          group: podman
+          mode: '0644'
+
     - name: Reboot the server
       ansible.builtin.reboot:
         reboot_timeout: 600     # wait up to 10 minutes for reboot
@@ -262,7 +270,7 @@
       tags: reboot
 
   handlers:
-    
+
     - name: Controleer docker-compose
       command: docker-compose version
       register: compose_check
