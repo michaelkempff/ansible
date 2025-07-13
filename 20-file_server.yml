@@ -29,16 +29,6 @@
         - /srv/nfs/nextcloud-server
         - /srv/smb/michael
 
-    - name: Clean up existing /home contents before Btrfs mount
-      become: true
-      ansible.builtin.shell: >
-        rm -rf /home/* /home/.[!.]* /home/..?*
-      args:
-        warn: false
-      # only run until /home is mounted
-      when: >
-        (ansible_mounts | selectattr('mount', 'equalto', '/home') | list | length) == 0
-        
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -408,7 +398,17 @@
 
     - name: Display public SSH key for michael
       debug:
-        msg: "{{ michael_public_key.content | b64decode }}"  
+        msg: "{{ michael_public_key.content | b64decode }}"
+
+    - name: Reboot the server
+      ansible.builtin.reboot:
+        reboot_timeout: 600     # wait up to 10 minutes for reboot
+        test_command: whoami    # command to verify SSH is back
+      tags: reboot
+
+    - name: Reset SSH connection after reboot
+      meta: reset_connection
+      tags: reboot  
 
   handlers:
     
