@@ -28,6 +28,16 @@
         - /srv/nfs/container-server
         - /srv/nfs/nextcloud-server
         - /srv/smb/michael
+
+    - name: Clean up existing /home contents before Btrfs mount
+      become: true
+      ansible.builtin.shell: >
+        rm -rf /home/* /home/.[!.]* /home/..?*
+      args:
+        warn: false
+      # only run until /home is mounted
+      when: >
+        (ansible_mounts | selectattr('mount', 'equalto', '/home') | list | length) == 0
         
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -37,6 +47,7 @@
         opts: "{{ item.opts }}"
         state: mounted
       loop:
+        - { path: "/home", opts: "subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/michael", opts: "subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
@@ -73,9 +84,10 @@
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "{{ item }}"
+        line: "{{ item }}" 
         state: present
       loop:
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home btrfs subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/backup btrfs subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/michael btrfs subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
@@ -112,7 +124,10 @@
           - git
           - rsync
           - fastfetch
-          - lynis          
+          - lynis
+          - podman
+          - podman-docker
+          - jq          
         state: present
         update_cache: yes
 
@@ -232,7 +247,7 @@
         group: michael
         mode: '0755'
 
-    - name: Ensure aliases are present in .bashrc for root and michael
+    - name: Ensure aliases are present in .bashrc for root
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
         line: "{{ item.alias }}"
@@ -245,16 +260,65 @@
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
-    
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn'" }
+
+    - name: Make fastfetch run for every interactive shell
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/profile.d/fastfetch.sh
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          # only run in an interactive terminal
+          if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
+            fastfetch
+          fi
+
+    - name: Download Docker Compose standalone binary
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/{{ compose_version }}/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+      notify: Controleer docker-compose
+
+    - name: Ensure user 'podman' exists with a specific password
+      ansible.builtin.user:
+        name: podman
+        shell: /bin/bash
+        home: /home/podman
+        
+    - name: Set podman’s Linux password
+      ansible.builtin.user:
+        name: podman
+        password: "{{ podman_password | password_hash('sha512') }}"
+        
+    - name: Ensure podman has authorized SSH key
+      ansible.posix.authorized_key:
+        user: podman
+        state: present
+        key: "{{ podman_ssh_pubkey }}"
+
+    - name: Enable linger for podman user so socket survives reboot
+      command: loginctl enable-linger podman
+
+    - name: Ensure podman.socket is enabled and running for podman user
+      ansible.builtin.command: >
+        sudo -u podman env XDG_RUNTIME_DIR=/run/user/{{ podman_uid }}
+        systemctl --user enable --now podman.socket
+
+    - name: Ensure podman's bashrc exports DOCKER_HOST
+      lineinfile:
+        path: /home/podman/.bashrc
+        line: 'export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock'
+        create: yes
+        owner: podman
+        group: podman
+        mode: '0644'
+            
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
         name: nfs-server
@@ -268,8 +332,6 @@
           /srv/nfs 10.12.112.50(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.55(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
           /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.11(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
           /srv/nfs/backup 10.12.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/infra-server/pihole-clients 10.12.112.30(rw,fsid=3,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/infra-server/compose 10.12.112.30(rw,fsid=4,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})  
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
       notify: Restart NFS
 
@@ -360,6 +422,13 @@
         name: smbd
         state: restarted
         enabled: yes
+
+    - name: Controleer docker-compose
+      command: docker-compose version
+      register: compose_check
+      changed_when: false
+      failed_when: compose_check.rc != 0
+
 
 
 

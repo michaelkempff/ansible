@@ -155,77 +155,12 @@
         state: present
         key: "{{ podman_ssh_pubkey }}"
 
-    - name: Ensure aliases are present in .bashrc for root, podman and michael
-      ansible.builtin.lineinfile:
-        path: "{{ item.bashrc }}"
-        line: "{{ item.alias }}"
-        create: yes
-        owner: "{{ item.user }}"
-        group: "{{ item.user }}"
-        mode: '0644'
-        insertafter: EOF
-      loop:
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn''" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias gs='git status'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias c='clear'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias h='history'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
-        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
-
-    - name: Fetch latest Docker Compose release via GitHub API
-      uri:
-        url: https://api.github.com/repos/docker/compose/releases/latest
-        return_content: yes
-        status_code: 200
-      register: compose_release
-      retries: 3
-      delay: 5
-      until: compose_release.status == 200
-
-    - name: Determine Docker Compose version (fallback if API fails)
-      set_fact:
-        compose_version: >-
-          {{ compose_release.json.tag_name
-             if (compose_release.json is defined and compose_release.json.tag_name is defined)
-             else 'v2.18.1' }}
-
     - name: Download Docker Compose standalone binary
       get_url:
         url: "https://github.com/docker/compose/releases/download/{{ compose_version }}/docker-compose-{{ ansible_system | lower }}-{{ ansible_architecture }}"
         dest: /usr/local/bin/docker-compose
         mode: '0755'
       notify: Controleer docker-compose
-
-    - name: Get podman user's UID
-      command: id -u podman
-      register: podman_uid_cmd
-      changed_when: false
-
-    - name: Set podman_uid fact
-      set_fact:
-        podman_uid: "{{ podman_uid_cmd.stdout }}"
-
-    - name: Get podman user's GID
-      ansible.builtin.command:
-        cmd: "id -g podman"
-      register: podman_gid_cmd
-      changed_when: false
-
-    - name: Set podman_gid fact
-      ansible.builtin.set_fact:
-        podman_gid: "{{ podman_gid_cmd.stdout }}"
 
     - name: Enable linger for podman user so socket survives reboot
       command: loginctl enable-linger podman
@@ -244,21 +179,77 @@
         group: podman
         mode: '0644'
 
-    - name: Create mount point
+    - name: Create directory for compose files
       file:
         path: /home/podman/compose
         state: directory
         mode: '0755'
 
-    - name: Mount NFS-share en voeg toe aan /etc/fstab
-      mount:
-        path: /home/podman/compose
-        src: 10.12.112.20:/srv/nfs/infra-server/compose
-        fstype: nfs
-        opts: rw
-        state: mounted
-        dump: 0  
-        passno: 0
+    - name: Create directory for persistent podman data
+      file:
+        path: /home/podman/data
+        state: directory
+        mode: '0755'
+
+    - name: Ensure aliases are present in .bashrc for root, podman and michael
+      ansible.builtin.lineinfile:
+        path: "{{ item.bashrc }}"
+        line: "{{ item.alias }}"
+        create: yes
+        owner: "{{ item.user }}"
+        group: "{{ item.user }}"
+        mode: '0644'
+        insertafter: EOF
+      loop:
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias c='clear'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias h='history'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias c='clear'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias h='history'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'michael', bashrc: '/home/michael/.bashrc', alias: "alias ports='ss -tulpn'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias gs='git status'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias c='clear'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias h='history'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ls='ls -alh --color=auto'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias df='df -h'" }
+        - { user: 'podman', bashrc: '/home/podman/.bashrc', alias: "alias ports='ss -tulpn'" }
+
+    - name: Make fastfetch run for every interactive shell
+      become: true
+      ansible.builtin.copy:
+        dest: /etc/profile.d/fastfetch.sh
+        owner: root
+        group: root
+        mode: '0755'
+        content: |
+          #!/bin/sh
+          # only run in an interactive terminal
+          if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
+            fastfetch
+          fi
+
+    - name: Fetch latest Docker Compose release via GitHub API
+      uri:
+        url: https://api.github.com/repos/docker/compose/releases/latest
+        return_content: yes
+        status_code: 200
+      register: compose_release
+      retries: 3
+      delay: 5
+      until: compose_release.status == 200
+
+    - name: Determine Docker Compose version (fallback if API fails)
+      set_fact:
+        compose_version: >-
+          {{ compose_release.json.tag_name
+             if (compose_release.json is defined and compose_release.json.tag_name is defined)
+             else 'v2.18.1' }}
 
     - name: Reboot the server
       ansible.builtin.reboot:
@@ -271,6 +262,7 @@
       tags: reboot
 
   handlers:
+    
     - name: Controleer docker-compose
       command: docker-compose version
       register: compose_check
