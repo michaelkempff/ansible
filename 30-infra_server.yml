@@ -191,6 +191,25 @@
         state: directory
         mode: '0755'
 
+    - name: Get podman user's UID
+      command: id -u podman
+      register: podman_uid_cmd
+      changed_when: false
+
+    - name: Set podman_uid fact
+      set_fact:
+        podman_uid: "{{ podman_uid_cmd.stdout }}"
+
+    - name: Get podman user's GID
+      ansible.builtin.command:
+        cmd: "id -g podman"
+      register: podman_gid_cmd
+      changed_when: false
+
+    - name: Set podman_gid fact
+      ansible.builtin.set_fact:
+        podman_gid: "{{ podman_gid_cmd.stdout }}"
+
     - name: Ensure aliases are present in .bashrc for root, podman and michael
       ansible.builtin.lineinfile:
         path: "{{ item.bashrc }}"
