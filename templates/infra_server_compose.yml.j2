@@ -1,4 +1,42 @@
+networks:
+
+  npm:
+
 services:
+
+  nginxproxymanager:
+    container_name: npm-app
+    restart: unless-stopped
+    image: 'jc21/nginx-proxy-manager:latest'
+    networks:
+      - 'npm'
+    ports:
+      - '10.10.116.30:8080:80'
+      - '10.10.116.30:8443:443'
+      - '10.11.112.30:8082:81'
+    environment:
+      DB_MYSQL_HOST: "nginxproxymanager-db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "KVSG6pJUzPLuEB"
+      DB_MYSQL_NAME: "npm"
+    volumes:
+      - '../data/npm/app/nginxproxymanager-data:/data'
+      - '../data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt'
+
+  nginxproxymanager-db:
+    container_name: npm-db
+    restart: unless-stopped
+    image: 'jc21/mariadb-aria:latest'
+    networks:
+      - 'npm'
+    environment:
+      MYSQL_ROOT_PASSWORD: '6JnXPz4hbnfQbF'
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: 'KVSG6pJUzPLuEB'
+    volumes:
+      - '../data/npm/mysql:/var/lib/mysql'
 
   ntp-server:
     container_name: ntp-clients

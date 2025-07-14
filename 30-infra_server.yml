@@ -94,6 +94,8 @@
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
+        - { zone: "10G", service: "http" }
+        - { zone: "10G", service: "https" }
         - { zone: "10G", service: "dns" }
         - { zone: "10G", service: "dhcp" }
         - { zone: "10G", service: "ntp" }
@@ -108,6 +110,7 @@
       loop:
         - { zone: "containers", port: "8080/tcp" }
         - { zone: "containers", port: "8081/tcp" }
+        - { zone: "containers", port: "8082/tcp" }
 
     - name: Enable IP forwarding
       sysctl:
@@ -134,7 +137,9 @@
         - { zone: "10G",    src_port: 53,  protocol: "udp", to_port: 8053 }
         - { zone: "10G",    src_port: 67,  protocol: "tcp", to_port: 8067 }
         - { zone: "10G",    src_port: 67,  protocol: "udp", to_port: 8067 }
-        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }        
+        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }
+        - { zone: "10G",    src_port: 8080, protocol: "tcp", to_port: 80 }        
+        - { zone: "10G",    src_port: 8443, protocol: "tcp", to_port: 443 }
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
