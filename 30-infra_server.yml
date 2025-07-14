@@ -111,6 +111,7 @@
         - { zone: "containers", port: "8080/tcp" }
         - { zone: "containers", port: "8081/tcp" }
         - { zone: "containers", port: "8082/tcp" }
+        - { zone: "containers", port: "8083/tcp" }
 
     - name: Enable IP forwarding
       sysctl:
