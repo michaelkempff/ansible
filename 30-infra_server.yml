@@ -292,13 +292,13 @@
           group: root
           mode: '0644'
 
-#      - name: Deploy compose file
-#        ansible.builtin.template:
-#          src: infra_server_compose.yml.j2
-#          dest: /home/podman/compose/compose.yml
-#          owner: podman
-#          group: podman
-#          mode: '0644'
+    - name: Deploy compose file
+      ansible.builtin.template:
+          src: infra_server_compose.yml.j2
+          dest: /home/podman/compose/compose.yml
+          owner: podman
+          group: podman
+          mode: '0644'
 
     - name: Reboot the server
       ansible.builtin.reboot:
