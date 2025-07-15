@@ -89,9 +89,7 @@
         permanent: yes
         immediate: yes
         state: enabled
-      loop:
-        - { zone: "servers", service: "http" }
-        - { zone: "servers", service: "https" }
+      loop:       
         - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
