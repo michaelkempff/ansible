@@ -90,6 +90,8 @@
         immediate: yes
         state: enabled
       loop:
+        - { zone: "servers", service: "http" }
+        - { zone: "servers", service: "https" }
         - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
@@ -129,18 +131,20 @@
         immediate: yes
         state: enabled  
       loop:
+        - { zone: "servers",    src_port: 8080, protocol: "tcp", to_port: 80 }        
+        - { zone: "servers",    src_port: 8443, protocol: "tcp", to_port: 443 }
         - { zone: "servers", src_port: 53,  protocol: "tcp", to_port: 8053 }
         - { zone: "servers", src_port: 53,  protocol: "udp", to_port: 8053 }
         - { zone: "servers", src_port: 67,  protocol: "tcp", to_port: 8067 }
         - { zone: "servers", src_port: 67,  protocol: "udp", to_port: 8067 }
         - { zone: "servers", src_port: 123, protocol: "udp", to_port: 8123 }
+        - { zone: "10G",    src_port: 8080, protocol: "tcp", to_port: 80 }        
+        - { zone: "10G",    src_port: 8443, protocol: "tcp", to_port: 443 }
         - { zone: "10G",    src_port: 53,  protocol: "tcp", to_port: 8053 }
         - { zone: "10G",    src_port: 53,  protocol: "udp", to_port: 8053 }
         - { zone: "10G",    src_port: 67,  protocol: "tcp", to_port: 8067 }
         - { zone: "10G",    src_port: 67,  protocol: "udp", to_port: 8067 }
-        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }
-        - { zone: "10G",    src_port: 8080, protocol: "tcp", to_port: 80 }        
-        - { zone: "10G",    src_port: 8443, protocol: "tcp", to_port: 443 }
+        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }        
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
