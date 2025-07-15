@@ -306,22 +306,6 @@
           group: podman
           mode: '0644'
 
-    - name: Deploy pihole clients hosts file
-      ansible.builtin.template:
-          src: infra_server_pihole_clients_hosts.j2
-          dest: /home/podman/pihole_clients_hosts
-          owner: podman
-          group: podman
-          mode: '0644'
-
-    - name: Deploy pihole servers hosts file
-      ansible.builtin.template:
-          src: infra_server_pihole_servers_hosts.j2
-          dest: /home/podman/pihole_servers_hosts
-          owner: podman
-          group: podman
-          mode: '0644'
-
     - name: Reboot the server
       ansible.builtin.reboot:
         reboot_timeout: 600     # wait up to 10 minutes for reboot
