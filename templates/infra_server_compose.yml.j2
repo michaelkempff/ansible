@@ -77,6 +77,8 @@ services:
       - '../data/pihole-clients/etc-pihole:/etc/pihole'
       # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
       - '../data/pihole-clients/etc-dnsmasq.d:/etc/dnsmasq.d'
+      # hosts file manged by ansible
+      - '../../pihole_clients_hosts:/etc/hosts'
     cap_add:
       # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       # Required if you are using Pi-hole as your DHCP server, else not needed
@@ -109,6 +111,8 @@ services:
       - '../data/pihole-servers/etc-pihole:/etc/pihole'
       # Uncomment the below if you have custom dnsmasq config files that you want to persist. Not needed for most starting fresh with Pi-hole v6. If you're upgrading from v5 you and have used this directory before, you should keep it enabled for the first v6 container start to allow for a complete migration. It can be removed afterwards. Needs environment variable FTLCONF_misc_etc_dnsmasq_d: 'true'
       - '../data/pihole-servers/etc-dnsmasq.d:/etc/dnsmasq.d'
+      # hosts file manged by ansible
+      - '../../pihole_servers_hosts:/etc/hosts'
     cap_add:
       # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       # Required if you are using Pi-hole as your DHCP server, else not needed

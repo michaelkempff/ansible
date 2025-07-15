@@ -292,7 +292,7 @@
 
     - name: Deploy unbound config file
       ansible.builtin.template:
-          src: infra_server_pihole_unbound.conf
+          src: infra_server_pihole_unbound.conf.j2
           dest: /etc/unbound/unbound.conf.d/pi-hole.conf
           owner: root
           group: root
@@ -302,6 +302,22 @@
       ansible.builtin.template:
           src: infra_server_compose.yml.j2
           dest: /home/podman/compose/compose.yml
+          owner: podman
+          group: podman
+          mode: '0644'
+
+    - name: Deploy pihole clients hosts file
+      ansible.builtin.template:
+          src: infra_server_pihole_clients_hosts.j2
+          dest: /home/podman/pihole_clients_hosts
+          owner: podman
+          group: podman
+          mode: '0644'
+
+    - name: Deploy pihole servers hosts file
+      ansible.builtin.template:
+          src: infra_server_pihole_servers_hosts.j2
+          dest: /home/podman/pihole_servers_hosts
           owner: podman
           group: podman
           mode: '0644'
