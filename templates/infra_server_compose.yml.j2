@@ -20,6 +20,7 @@ services:
       DB_MYSQL_USER: "npm"
       DB_MYSQL_PASSWORD: "KVSG6pJUzPLuEB"
       DB_MYSQL_NAME: "npm"
+      DISABLE_IPV6: 'true'
     volumes:
       - '../data/npm/app/nginxproxymanager-data:/data'
       - '../data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt'
