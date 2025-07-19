@@ -88,7 +88,11 @@ services:
       - "heimdall.storagemedia.online:10.10.116.30"
       - "nextcloud.storagemedia.online:10.10.116.30"
       - "sabnzbd.storagemedia.online:10.10.116.30"
-      - "michael-workstation.home.arpa:10.10.112.50"
+      - "homeassistant.storagemedia.online:10.10.116.30"
+      - "michael-workstation.home.arpa:10.10.116.50"
+      - "michael-laptop.home.arpa:10.10.116.51"
+      - "management-vm.home.arpa:10.10.116.55"
+      - "test-desktop.home.arpa:10.10.116.56"
     cap_add:
       # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       # Required if you are using Pi-hole as your DHCP server, else not needed
@@ -123,6 +127,11 @@ services:
       - '../data/pihole-servers/etc-dnsmasq.d:/etc/dnsmasq.d'
     extra_hosts:
       - "pve-server.home.arpa:10.10.112.10"      
+      - "pve-workstation.home.arpa:10.10.112.11"
+      - "pbs-server.home.arpa:10.10.112.15"
+      - "michael-workstation.home.arpa:10.10.112.50"
+      - "management-vm.home.arpa:10.10.112.55"
+      - "test-desktop.home.arpa:10.10.112.56"
     cap_add:
       # See https://github.com/pi-hole/docker-pi-hole#note-on-capabilities
       # Required if you are using Pi-hole as your DHCP server, else not needed
