@@ -39,7 +39,6 @@
         - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/michael", opts: "subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/srv/nvme/infra-server", opts: "subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         
     - name: Mount Btrfs root NVMe U.2 Drive
@@ -74,7 +73,6 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/backup btrfs subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/michael btrfs subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/infra-server btrfs subvol=@srv_nvme_infra-server,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/ncdata btrfs subvol=@srv_nvme_ncdata,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd"
@@ -131,15 +129,17 @@
           compression-algorithm = zstd
           swap-priority = 100
 
+    - name: Re-exec systemd to generate ZRAM units
+      ansible.builtin.command: systemctl daemon-reexec
+
     - name: Reload systemd daemon
       ansible.builtin.systemd:
         daemon_reload: yes
 
-    - name: Start and enable ZRAM swap
-      ansible.builtin.systemd:
-        name: swap-create@zram0.service
-        enabled: yes
-        state: started
+    - name: Check if ZRAM systemd unit exists
+      stat:
+        path: /run/systemd/generator/swap-create@zram0.service
+      register: zram_unit
 
     - name: Ensure Firewalld is running and enabled
       ansible.builtin.systemd:
