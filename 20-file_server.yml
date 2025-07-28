@@ -82,7 +82,7 @@
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
-                                     
+
     - name: Install required packages
       ansible.builtin.apt:
         name:
@@ -117,9 +117,29 @@
           - apparmor-profiles
           - jq
           - unbound
-          - bind9-dnsutils            
+          - bind9-dnsutils
+          - systemd-zram-generator            
         state: present
         update_cache: yes
+    
+    - name: Create ZRAM configuration file
+      copy:
+        dest: /etc/systemd/zram-generator.conf
+        content: |
+          [zram0]
+          zram-size = 8192MiB
+          compression-algorithm = zstd
+          swap-priority = 100
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: yes
+
+    - name: Start and enable ZRAM swap
+      ansible.builtin.systemd:
+        name: swap-create@zram0.service
+        enabled: yes
+        state: started
 
     - name: Ensure Firewalld is running and enabled
       ansible.builtin.systemd:
