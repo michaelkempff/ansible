@@ -120,26 +120,28 @@
         state: present
         update_cache: yes
     
-    - name: Create ZRAM configuration file
+    - name: Ensure zram-generator.conf.d directory exists
+      file:
+        path: /etc/systemd/zram-generator.conf.d
+        state: directory
+        mode: '0755'
+
+    - name: Create valid zram configuration file
       copy:
-        dest: /etc/systemd/zram-generator.conf
+        dest: /etc/systemd/zram-generator.conf.d/zram.conf
         content: |
           [zram0]
           zram-size = 8192MiB
           compression-algorithm = zstd
           swap-priority = 100
+        mode: '0644'
 
-    - name: Re-exec systemd to generate ZRAM units
-      ansible.builtin.command: systemctl daemon-reexec
+    - name: Re-exec systemd
+      command: systemctl daemon-reexec
 
-    - name: Reload systemd daemon
-      ansible.builtin.systemd:
-        daemon_reload: yes
-
-    - name: Check if ZRAM systemd unit exists
-      stat:
-        path: /run/systemd/generator/swap-create@zram0.service
-      register: zram_unit
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
 
     - name: Ensure Firewalld is running and enabled
       ansible.builtin.systemd:
