@@ -528,19 +528,20 @@
 
     - name: Deploy npm compose file
       ansible.builtin.template:
-          src: file-server_compose_npm_compose.yml.j2
-          dest: /home/podman/compose/npm/compose.yml
-          owner: podman
-          group: podman
-          mode: '0644'
+        src: file-server/compose/npm/compose.yml.j2
+        dest: /home/podman/compose/npm/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
 
-    - name: Deploy npm .env file
+
+    - name: Deploy npm compose file
       ansible.builtin.template:
-          src: file-server_compose_npm.env.j2
-          dest: /home/podman/compose/npm/.env
-          owner: podman
-          group: podman
-          mode: '0644'
+        src: file-server/compose/npm/.env.j2
+        dest: /home/podman/compose/npm/.env
+        owner: podman
+        group: podman
+        mode: '0644'
 
     - name: Reboot the server
       ansible.builtin.reboot:
