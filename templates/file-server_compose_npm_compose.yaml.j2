@@ -18,12 +18,12 @@ services:
       DB_MYSQL_HOST: "nginxproxymanager-db"
       DB_MYSQL_PORT: 3306
       DB_MYSQL_USER: "npm"
-      DB_MYSQL_PASSWORD: "KVSG6pJUzPLuEB"
+      - DB_MYSQL_PASSWORD=${DB_MYSQL_PASSWORD}
       DB_MYSQL_NAME: "npm"
       DISABLE_IPV6: 'true'
     volumes:
-      - '../data/npm/app/nginxproxymanager-data:/data'
-      - '../data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt'
+      - '/home/podman/data/npm/app/nginxproxymanager-data:/data'
+      - '/home/podman/data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt'
 
   nginxproxymanager-db:
     container_name: npm-db
@@ -32,9 +32,9 @@ services:
     networks:
       - 'npm'
     environment:
-      MYSQL_ROOT_PASSWORD: '6JnXPz4hbnfQbF'
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: 'npm'
       MYSQL_USER: 'npm'
-      MYSQL_PASSWORD: 'KVSG6pJUzPLuEB'
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     volumes:
-      - '../data/npm/mysql:/var/lib/mysql'
+      - '/home/podman/data/npm/mysql:/var/lib/mysql'
