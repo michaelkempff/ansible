@@ -41,8 +41,7 @@
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data", opts: "subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data/nextcloud", opts: "subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        
+        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }        
         
     - name: Mount Btrfs root NVMe U.2 Drive
       ansible.builtin.mount:
@@ -523,10 +522,20 @@
         recurse: yes
         state: directory
 
-    - name: Deploy compose file
+# deploy podman containers
+
+    - name: Deploy npm compose file
       ansible.builtin.template:
-          src: file_server_compose_npm.yml.j2
+          src: file_server/compose/compose.yml.j2
           dest: /home/podman/compose/npm/compose.yml
+          owner: podman
+          group: podman
+          mode: '0644'
+
+    - name: Deploy npm .env file
+      ansible.builtin.template:
+          src: file_server/compose/.env.j2
+          dest: /home/podman/compose/npm/.env
           owner: podman
           group: podman
           mode: '0644'
