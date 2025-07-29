@@ -336,6 +336,8 @@
           if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
             fastfetch
           fi
+
+## configure nfs
     
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
@@ -390,13 +392,17 @@
           udp-port=32765
       notify: Restart NFS
 
+## configure unbound
+
     - name: Deploy unbound config file
       ansible.builtin.template:
-          src: file-server_unbound.conf.j2
+          src: file_server/unbound/unbound.conf.j2
           dest: /etc/unbound/unbound.conf.d/pi-hole.conf
           owner: root
           group: root
           mode: '0644'
+
+## configure samba
 
     - name: Ensure michael is in the sambashare group
       ansible.builtin.user:
@@ -433,16 +439,14 @@
         
     - name: Deploy custom smb.conf
       ansible.builtin.template:
-        src: file-server_smb.conf.j2
+        src: file_server/samba/smb.conf.j2
         dest: /etc/samba/smb.conf
         owner: root
         group: root
         mode: '0644'
       notify: Restart Samba
 
-    - name: Display public SSH key for michael
-      debug:
-        msg: "{{ michael_public_key.content | b64decode }}"
+## install docker compose    
     
     - name: Fetch latest Docker Compose release via GitHub API
       uri:
@@ -460,6 +464,8 @@
           {{ compose_release.json.tag_name
              if (compose_release.json is defined and compose_release.json.tag_name is defined)
              else 'v2.18.1' }}
+
+## configure podman user
 
     - name: Ensure user 'podman' exists with a specific password
       ansible.builtin.user:
@@ -528,7 +534,7 @@
 
     - name: Deploy npm compose file
       ansible.builtin.template:
-        src: file-server/compose/npm/compose.yml.j2
+        src: file_server/compose/npm/compose.yml.j2
         dest: /home/podman/compose/npm/compose.yml
         owner: podman
         group: podman
@@ -537,7 +543,7 @@
 
     - name: Deploy npm compose file
       ansible.builtin.template:
-        src: file-server/compose/npm/.env.j2
+        src: file_server/compose/npm/.env.j2
         dest: /home/podman/compose/npm/.env
         owner: podman
         group: podman
