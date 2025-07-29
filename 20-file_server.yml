@@ -526,16 +526,16 @@
 
     - name: Deploy npm compose file
       ansible.builtin.template:
-          src: file_server/npm/compose/compose.yml.j2
-          dest: /home/podman/compose/npm/compose.yml
+          src: file_server/npm/compose.yml.j2
+          dest: /home/podman/npm/compose.yml
           owner: podman
           group: podman
           mode: '0644'
 
     - name: Deploy npm .env file
       ansible.builtin.template:
-          src: file_server/npm/compose/.env.j2
-          dest: /home/podman/compose/npm/.env
+          src: file_server/npm/.env.j2
+          dest: /home/podman/npm/.env
           owner: podman
           group: podman
           mode: '0644'
