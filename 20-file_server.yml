@@ -514,9 +514,9 @@
         group: podman
         mode: '0644'
 
-    - name: Ensure /home/podman is owned by podman:podman (recursively)
+    - name: Ensure /home/podman/data is owned by podman:podman (recursively)
       ansible.builtin.file:
-        path: /home/podman
+        path: /home/podman/data
         owner: podman
         group: podman
         recurse: yes
