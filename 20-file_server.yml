@@ -24,7 +24,6 @@
         - /srv/mnt   # Directory for NFS mounts
         - /srv/nfs/backup
         - /srv/nfs/iso
-        - /srv/nfs/infra-server      
         - /srv/smb/michael
 
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
@@ -40,6 +39,10 @@
         - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/michael", opts: "subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/home/podman/data", opts: "subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/home/podman/data/nextcloud", opts: "subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+        
         
     - name: Mount Btrfs root NVMe U.2 Drive
       ansible.builtin.mount:
@@ -75,8 +78,9 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/michael btrfs subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/ncdata btrfs subvol=@srv_nvme_ncdata,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=@srv_nvme_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data btrfs subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/nextcloud btrfs subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
@@ -333,7 +337,114 @@
           if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
             fastfetch
           fi
+    
+    - name: Ensure NFS service is running and enabled
+      ansible.builtin.systemd:
+        name: nfs-server
+        enabled: yes
+        state: started
 
+    - name: Define NFS exports
+      ansible.builtin.blockinfile:
+        path: /etc/exports
+        block: |
+          /srv/nfs 10.12.112.50(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.55(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.11(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+          /srv/nfs/backup 10.12.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
+        marker: "# {mark} ANSIBLE MANAGED BLOCK"
+      notify: Restart NFS
+
+    - name: Add Nobody-User in [Mapping]
+      ansible.builtin.ini_file:
+        path: /etc/idmapd.conf
+        section: Mapping
+        option: Nobody-User
+        value: nobody
+        backup: yes
+
+    - name: Add Nobody-Group in [Mapping]
+      ansible.builtin.ini_file:
+        path: /etc/idmapd.conf
+        section: Mapping
+        option: Nobody-Group
+        value: nobody
+        backup: yes
+
+    - name: Export NFS shares
+      ansible.builtin.command: exportfs -ra
+      changed_when: false
+
+    - name: Set fixed ports for NFS services in /etc/nfs.conf
+      ansible.builtin.blockinfile:
+        path: /etc/nfs.conf
+        marker: "# {mark} ANSIBLE MANAGED NFS PORTS"
+        block: |
+          [mountd]
+          port=20048
+
+          [lockd]
+          port=32767
+          udp-port=32767
+
+          [statd]
+          port=32765
+          udp-port=32765
+      notify: Restart NFS
+
+    - name: Deploy unbound config file
+      ansible.builtin.template:
+          src: file_server_unbound.conf.j2
+          dest: /etc/unbound/unbound.conf.d/pi-hole.conf
+          owner: root
+          group: root
+          mode: '0644'
+
+    - name: Ensure michael is in the sambashare group
+      ansible.builtin.user:
+        name: michael
+        groups: sambashare
+        append: yes
+
+    - name: Ensure /home/michael is owned by michael:michael (recursively)
+      ansible.builtin.file:
+        path: /home/michael
+        owner: michael
+        group: michael
+        recurse: yes
+        state: directory
+
+    - name: Create Samba users for each share
+      ansible.builtin.shell: |
+        echo -e "{{ lookup('vars', item + '_smb_password') }}\n{{ lookup('vars', item + '_smb_password') }}" \
+          | smbpasswd -s -a {{ item }}
+      args:
+        executable: /bin/bash
+      loop:
+        - michael
+
+    - name: Ensure share directories have correct owner/group and mode
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+        recurse: no
+      loop:
+        - { path: "/srv/smb/michael",       owner: michael,  group: michael,  mode: "2770" }
+        
+    - name: Deploy custom smb.conf
+      ansible.builtin.template:
+        src: file_server_smb.conf.j2
+        dest: /etc/samba/smb.conf
+        owner: root
+        group: root
+        mode: '0644'
+      notify: Restart Samba
+
+    - name: Display public SSH key for michael
+      debug:
+        msg: "{{ michael_public_key.content | b64decode }}"
+    
     - name: Fetch latest Docker Compose release via GitHub API
       uri:
         url: https://api.github.com/repos/docker/compose/releases/latest
@@ -404,107 +515,21 @@
         group: podman
         mode: '0644'
 
-    - name: Mount Btrfs subvolumes for podman
-      ansible.builtin.mount:
-        path: "{{ item.path }}"
-        src: "UUID=19583b5d-8c79-4f16-b902-153124679f5e"
-        fstype: btrfs
-        opts: "{{ item.opts }}"
-        state: mounted
-      loop:
-        - { path: "/home/podman/data/ncdata", opts: "subvol=@srv_nvme_ncdata,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/sabnzbd", opts: "subvol=@srv_nvme_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-            
-    - name: Ensure NFS service is running and enabled
-      ansible.builtin.systemd:
-        name: nfs-server
-        enabled: yes
-        state: started
-
-    - name: Define NFS exports
-      ansible.builtin.blockinfile:
-        path: /etc/exports
-        block: |
-          /srv/nfs 10.12.112.50(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.55(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.11(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/backup 10.12.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-        marker: "# {mark} ANSIBLE MANAGED BLOCK"
-      notify: Restart NFS
-
-    - name: Add Nobody-User in [Mapping]
-      ansible.builtin.ini_file:
-        path: /etc/idmapd.conf
-        section: Mapping
-        option: Nobody-User
-        value: nobody
-        backup: yes
-
-    - name: Add Nobody-Group in [Mapping]
-      ansible.builtin.ini_file:
-        path: /etc/idmapd.conf
-        section: Mapping
-        option: Nobody-Group
-        value: nobody
-        backup: yes
-
-    - name: Export NFS shares
-      ansible.builtin.command: exportfs -ra
-      changed_when: false
-
-    - name: Set fixed ports for NFS services in /etc/nfs.conf
-      ansible.builtin.blockinfile:
-        path: /etc/nfs.conf
-        marker: "# {mark} ANSIBLE MANAGED NFS PORTS"
-        block: |
-          [mountd]
-          port=20048
-
-          [lockd]
-          port=32767
-          udp-port=32767
-
-          [statd]
-          port=32765
-          udp-port=32765
-      notify: Restart NFS
-
-    - name: Ensure michael is in the sambashare group
-      ansible.builtin.user:
-        name: michael
-        groups: sambashare
-        append: yes
-
-    - name: Create Samba users for each share
-      ansible.builtin.shell: |
-        echo -e "{{ lookup('vars', item + '_smb_password') }}\n{{ lookup('vars', item + '_smb_password') }}" \
-          | smbpasswd -s -a {{ item }}
-      args:
-        executable: /bin/bash
-      loop:
-        - michael
-
-    - name: Ensure share directories have correct owner/group and mode
+    - name: Ensure /home/podman is owned by podman:podman (recursively)
       ansible.builtin.file:
-        path: "{{ item.path }}"
-        owner: "{{ item.owner }}"
-        group: "{{ item.group }}"
-        mode: "{{ item.mode }}"
-        recurse: no
-      loop:
-        - { path: "/srv/smb/michael",       owner: michael,  group: michael,  mode: "2770" }
-        
-    - name: Deploy custom smb.conf
-      ansible.builtin.template:
-        src: file_server_smb.conf.j2
-        dest: /etc/samba/smb.conf
-        owner: root
-        group: root
-        mode: '0644'
-      notify: Restart Samba
+        path: /home/podman
+        owner: podman
+        group: podman
+        recurse: yes
+        state: directory
 
-    - name: Display public SSH key for michael
-      debug:
-        msg: "{{ michael_public_key.content | b64decode }}"
+    - name: Deploy compose file
+      ansible.builtin.template:
+          src: file_server_compose_npm.yml.j2
+          dest: /home/podman/compose/npm/compose.yml
+          owner: podman
+          group: podman
+          mode: '0644'
 
     - name: Reboot the server
       ansible.builtin.reboot:
