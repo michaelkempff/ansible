@@ -1,0 +1,29 @@
+services:
+
+  nextcloud-db:
+    image: mariadb:latest
+    container_name: nextcloud-db
+    restart: unless-stopped
+    volumes:
+      - /home/podman/data/nextcloud/nextcloud_db:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD={MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE=${MYSQL_DATABASE}
+      MYSQL_USER=${MYSQL_USER}
+      MYSQL_PASSWORD=${MYSQL_PASSWORD}
+
+  nextcloud-app:
+    image: nextcloud
+    container_name: nextcloud-app
+    restart: unless-stopped
+    depends_on:
+      - nextcloud-db
+    volumes:
+      - /home/podman/data/nextcloud/nextcloud_html:/var/www/html
+    environment:
+      MYSQL_HOST=${MYSQL_HOST}
+      MYSQL_DATABASE=${MYSQL_DATABASE}
+      MYSQL_USER=${MYSQL_USER}
+      MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    ports:
+      - "10.11.112.20:8084:80"

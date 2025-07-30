@@ -108,9 +108,7 @@
         line: "127.0.1.1 {{ fqdn }} {{ hostname }}"
         state: present
         create: yes
-        validate: '/usr/sbin/visudo -cf %s'
-      notify: Reload hostname
-
+      
     - name: Ensure /etc/hostname contains only short hostname
       ansible.builtin.copy:
         content: "{{ hostname }}\n"
@@ -155,6 +153,8 @@
           - apparmor-profiles
           - jq
           - systemd-container            
+          - unbound
+          - bind9-utils
         state: present
         update_cache: yes
 
@@ -246,6 +246,7 @@
         - { zone: "containers", port: "8081/tcp" }
         - { zone: "containers", port: "8082/tcp" }
         - { zone: "containers", port: "8083/tcp" }
+        - { zone: "containers", port: "8084/tcp" }
 
     - name: Enable IP forwarding
       sysctl:
@@ -543,6 +544,14 @@
         src: file_server/podman/registries.conf.j2
         dest: /etc/registries.conf
         owner: root
+        group: root
+        mode: '0644'
+
+    - name: Deploy podman user registries file
+      ansible.builtin.template:
+        src: file_server/podman/podman_registries.conf.j2
+        dest: /home/podman/.config/containers/registries.conf
+        owner: podman
         group: podman
         mode: '0644'
 
@@ -567,38 +576,6 @@
           
           [Service]
           WorkingDirectory=/home/podman/compose/ntp
-          ExecStart=/usr/bin/podman-compose up
-          ExecStop=/usr/bin/podman-compose down
-          Restart=always
-          TimeoutStartSec=0
-          StandardOutput=journal
-          StandardError=journal
-
-          [Install]
-          WantedBy=default.target
-        owner: podman
-        group: podman
-        mode: '0644'
-
-# Unbound
-
-    - name: Deploy Unbound compose file
-      ansible.builtin.template:
-        src: file_server/compose/unbound/compose.yml.j2
-        dest: /home/podman/compose/unbound/compose.yml
-        owner: podman
-        group: podman
-        mode: '0644'
-
-    - name: Install systemd unit to start NTP
-      copy:
-        dest: /home/podman/.config/systemd/user/unbound.service
-        content: |
-          [Unit]
-          Description=Unbound
-          
-          [Service]
-          WorkingDirectory=/home/podman/compose/unbound
           ExecStart=/usr/bin/podman-compose up
           ExecStop=/usr/bin/podman-compose down
           Restart=always
@@ -764,6 +741,46 @@
         group: podman
         mode: '0644'
 
+# Nextcloud
+
+    - name: Deploy Nextcloud compose file
+      ansible.builtin.template:
+        src: file_server/compose/nextcloud/compose.yml.j2
+        dest: /home/podman/compose/nextcloud/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Deploy Nextcloud env file
+      ansible.builtin.template:
+        src: file_server/compose/nextcloud/.env.j2
+        dest: /home/podman/compose/nextcloud/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Nextcloud
+      copy:
+        dest: /home/podman/.config/systemd/user/nextcloud.service
+        content: |
+          [Unit]
+          Description=Nextcloud
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/nextcloud
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
@@ -808,6 +825,14 @@
 
     - name: Start Pihole-servers service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-servers.service'
+
+# Nextcloud
+
+    - name: Enable Nextcloud service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
+
+    - name: Start Nextcloud service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start nextcloud.service'
 
 ## Finishing deployment by rebooting the server
 
