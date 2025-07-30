@@ -1,0 +1,29 @@
+services:
+
+  pihole-servers:
+    container_name: pihole-clients
+    image: pihole/pihole:latest
+    ports:
+      - "10.10.112.20:8053:53/tcp"
+      - "10.10.112.20:8053:53/udp"
+      - "10.11.112.20:8083:80/tcp"
+      - "10.10.112.20:8067:67/udp"
+    environment:
+      TZ=${TZ}
+      FTLCONF_webserver_api_password=${FTLCONF_webserver_api_password}
+      FTLCONF_misc_etc_dnsmasq_d=${FTLCONF_misc_etc_dnsmasq_d}
+      FTLCONF_dns_listeningMode=${FTLCONF_dns_listeningMode}
+    volumes:
+      - '/home/podman/data/pihole-servers/etc-pihole:/etc/pihole'
+      - '/home/podman/data/pihole-servers/etc-dnsmasq.d:/etc/dnsmasq.d'
+    extra_hosts:
+      - "pve-server.home.arpa:10.10.112.10"      
+      - "pve-workstation.home.arpa:10.10.112.11"
+      - "pbs-server.home.arpa:10.10.112.15"
+      - "file-server.home.arpa:10.10.112.20"
+      - "michael-workstation.home.arpa:10.10.112.50"
+      - "management-vm.home.arpa:10.10.112.55"
+      - "test-desktop.home.arpa:10.10.112.56"
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped

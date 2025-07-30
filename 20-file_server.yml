@@ -547,6 +547,38 @@
 
 ## Deploy podman containers
 
+# NTP
+
+    - name: Deploy NTP compose file
+      ansible.builtin.template:
+        src: file_server/compose/ntp/compose.yml.j2
+        dest: /home/podman/compose/ntp/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start NTP
+      copy:
+        dest: /home/podman/.config/systemd/user/ntp.service
+        content: |
+          [Unit]
+          Description=NTP
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/ntp
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
 # Nginx Proxy Manager
 
     - name: Deploy npm compose file
@@ -556,7 +588,6 @@
         owner: podman
         group: podman
         mode: '0644'
-
 
     - name: Deploy npm env file
       ansible.builtin.template:
@@ -661,10 +692,59 @@
         group: podman
         mode: '0644'
 
+# Pihole-servers
+
+    - name: Deploy Pihole-servers compose file
+      ansible.builtin.template:
+        src: file_server/compose/pihole-servers/compose.yml.j2
+        dest: /home/podman/compose/pihole-servers/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+
+    - name: Deploy Pihole-servers env file
+      ansible.builtin.template:
+        src: file_server/compose/pihole-servers/.env.j2
+        dest: /home/podman/compose/pihole-servers/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Pihole-servers
+      copy:
+        dest: /home/podman/.config/systemd/user/pihole-servers.service
+        content: |
+          [Unit]
+          Description=Pihole-clients
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/pihole-servers
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
+
+# NTP
+
+    - name: Enable NTP service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
+
+    - name: Start NTP service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start ntp.service'
 
 # Nginx Proxy Manager
 
@@ -689,6 +769,14 @@
 
     - name: Start Pihole-clients service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-clients.service'
+
+# Pihole-servers
+
+    - name: Enable Pihole-servers service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
+
+    - name: Start Pihole-servers service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-servers.service'
 
 ## Finishing deployment by rebooting the server
 

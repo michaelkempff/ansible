@@ -1,0 +1,12 @@
+services:
+
+  ntp-server:
+    container_name: ntp-clients
+    image: cturra/ntp:latest
+    restart: unless-stopped
+    ports:
+      - "10.10.116.20:8123:123/udp"
+      - "10.10.112.20:8123:123/udp"
+    environment:
+      - NTP_SERVERS=10.10.112.10
+      #- NTP_SERVERS=time.cloudflare.com
