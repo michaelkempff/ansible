@@ -24,6 +24,7 @@
         group: root
         mode: '0755'
       loop:
+        - /swap      # Mountpoint for swapfile
         - /srv/nvme  # Base for NVMe subvolumes
         - /srv/nfs   # Base for NFS bind mounts
         - /srv/smb   # Base for SMB bind mounts
@@ -40,6 +41,7 @@
         opts: "{{ item.opts }}"
         state: mounted
       loop:
+        - { path: "/swap", opts: "subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home", opts: "subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
@@ -77,6 +79,7 @@
         line: "{{ item }}" 
         state: present
       loop:
+        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /swap btrfs subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home btrfs subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/backup btrfs subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
@@ -86,7 +89,7 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data btrfs subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/nextcloud btrfs subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "/dev/zram0 none swap defaults,discard,pri=100,x-systemd.makefs 0 0"
+        - "/swap/swapfile none swap defaults 0 0"
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
@@ -128,36 +131,9 @@
           - jq
           - unbound
           - bind9-dnsutils
-          - systemd-zram-generator
-          - zram-tools
           - systemd-container            
         state: present
         update_cache: yes
-
-## create zram swap
-    
-    - name: Ensure zram-generator.conf.d directory exists
-      file:
-        path: /etc/systemd/zram-generator.conf.d
-        state: directory
-        mode: '0755'
-
-    - name: Create valid zram configuration file
-      copy:
-        dest: /etc/systemd/zram-generator.conf.d/zram.conf
-        content: |
-          [zram0]
-          zram-size = 8192MiB
-          compression-algorithm = zstd
-          swap-priority = 100
-        mode: '0644'
-
-    - name: Re-exec systemd
-      command: systemctl daemon-reexec
-
-    - name: Reload systemd
-      systemd:
-        daemon_reload: true
 
 ## configue firewalld
 
