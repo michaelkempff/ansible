@@ -615,13 +615,21 @@
     - name: Reload systemd user units for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
-# npm
+# Nginx Proxy Manager
 
     - name: Enable NPM service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
 
     - name: Start NPM service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user start npm.service'
+
+# Heimdall
+
+    - name: Enable Heimdall service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
+
+    - name: Start Heimdall service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start heimdall.service'
 
 ## Finishing deployment by rebooting the server
 
