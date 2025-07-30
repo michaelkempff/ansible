@@ -1,7 +1,7 @@
 services:
 
   pihole-servers:
-    container_name: pihole-clients
+    container_name: pihole-servers
     image: pihole/pihole:latest
     ports:
       - "10.10.112.20:8053:53/tcp"
