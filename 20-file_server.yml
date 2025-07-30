@@ -10,6 +10,8 @@
 
   tasks:
 
+## create paths and mount all filesystems
+
     - name: Create required directories (excluding Btrfs-managed paths)
       ansible.builtin.file:
         path: "{{ item }}"
@@ -80,9 +82,12 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data btrfs subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/nextcloud btrfs subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
+        - "/dev/zram0 none swap defaults,discard,pri=100,x-systemd.makefs 0 0"
         - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
+
+## install packages
 
     - name: Install required packages
       ansible.builtin.apt:
@@ -122,6 +127,8 @@
           - systemd-zram-generator            
         state: present
         update_cache: yes
+
+## create zram swap
     
     - name: Ensure zram-generator.conf.d directory exists
       file:
