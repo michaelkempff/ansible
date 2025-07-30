@@ -535,6 +535,16 @@
         group: podman
         mode: '0755'
 
+## Set podman registries
+
+    - name: Deploy podman registries file
+      ansible.builtin.template:
+        src: file_server/podman/registries.conf.j2
+        dest: /etc/registries.conf
+        owner: root
+        group: podman
+        mode: '0644'
+
 ## Deploy podman containers
 
 # Nginx Proxy Manager
