@@ -1,0 +1,36 @@
+services:
+
+  pihole-clients:
+    container_name: pihole-clients
+    image: pihole/pihole:latest
+    ports:
+      - "10.10.116.20:8053:53/tcp"
+      - "10.10.116.20:8053:53/udp"
+      - "10.11.112.20:8082:80/tcp"
+      - "10.10.116.20:8067:67/udp"
+    environment:
+      TZ=${TZ}
+      FTLCONF_webserver_api_password=${FTLCONF_webserver_api_password}
+      FTLCONF_misc_etc_dnsmasq_d=${FTLCONF_misc_etc_dnsmasq_d}
+      FTLCONF_dns_listeningMode=${FTLCONF_dns_listeningMode}
+    volumes:
+      - '/home/podman/data/pihole-clients/etc-pihole:/etc/pihole'
+      - '/home/podman/data/pihole-clients/etc-dnsmasq.d:/etc/dnsmasq.d'
+    extra_hosts:
+      - "npm.storagemedia.online:10.10.116.30"
+      - "pve-server.storagemedia.online:10.10.116.30"
+      - "pve-workstation.storagemedia.online:10.10.116.30"
+      - "pbs-server.storagemedia.online:10.10.116.30"
+      - "pihole-clients.storagemedia.online:10.10.116.30"
+      - "pihole-servers.storagemedia.online:10.10.116.30"
+      - "heimdall.storagemedia.online:10.10.116.30"
+      - "nextcloud.storagemedia.online:10.10.116.30"
+      - "sabnzbd.storagemedia.online:10.10.116.30"
+      - "homeassistant.storagemedia.online:10.10.116.30"
+      - "michael-workstation.home.arpa:10.10.116.50"
+      - "michael-laptop.home.arpa:10.10.116.51"
+      - "management-vm.home.arpa:10.10.116.55"
+      - "test-desktop.home.arpa:10.10.116.56"
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
