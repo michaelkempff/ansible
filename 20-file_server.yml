@@ -580,7 +580,7 @@
 
 # Heimdall
 
-    - name: Deploy npm compose file
+    - name: Deploy Heimdall compose file
       ansible.builtin.template:
         src: file_server/compose/heimdall/compose.yml.j2
         dest: /home/podman/compose/heimdall/compose.yml
@@ -597,6 +597,47 @@
           
           [Service]
           WorkingDirectory=/home/podman/compose/heimdall
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
+# Pihole-clients
+
+    - name: Deploy Pihole-clients compose file
+      ansible.builtin.template:
+        src: file_server/compose/pihole-clients/compose.yml.j2
+        dest: /home/podman/compose/pihole-clients/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+
+    - name: Deploy Pihole-clients env file
+      ansible.builtin.template:
+        src: file_server/compose/pihole-clients/.env.j2
+        dest: /home/podman/compose/pihole-clients/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Pihole-clients
+      copy:
+        dest: /home/podman/.config/systemd/user/pihole-clients.service
+        content: |
+          [Unit]
+          Description=Pihole-clients
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/pihole-clients
           ExecStart=/usr/bin/podman-compose up
           ExecStop=/usr/bin/podman-compose down
           Restart=always
@@ -630,6 +671,14 @@
 
     - name: Start Heimdall service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user start heimdall.service'
+
+# Pihole-clients
+
+    - name: Enable Pihole-clients service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
+
+    - name: Start Pihole-clients service for podman
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-clients.service'
 
 ## Finishing deployment by rebooting the server
 
