@@ -129,7 +129,8 @@
           - unbound
           - bind9-dnsutils
           - systemd-zram-generator
-          - zram-tools            
+          - zram-tools
+          - systemd-container            
         state: present
         update_cache: yes
 
