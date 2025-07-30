@@ -578,6 +578,38 @@
         group: podman
         mode: '0644'
 
+# Heimdall
+
+    - name: Deploy npm compose file
+      ansible.builtin.template:
+        src: file_server/compose/heimdall/compose.yml.j2
+        dest: /home/podman/compose/heimdall/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Heimdall
+      copy:
+        dest: /home/podman/.config/systemd/user/heimdall.service
+        content: |
+          [Unit]
+          Description=Heimdall
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/heimdall
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
