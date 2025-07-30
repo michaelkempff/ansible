@@ -94,6 +94,31 @@
         - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
         - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
 
+## Set FQDN
+
+    - name: Set hostname with hostnamectl
+      ansible.builtin.command:
+        cmd: "hostnamectl set-hostname {{ fqdn }}"
+      changed_when: true
+
+    - name: Ensure /etc/hosts contains proper FQDN mapping
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: "^127\\.0\\.1\\.1\\s+"
+        line: "127.0.1.1 {{ fqdn }} {{ hostname }}"
+        state: present
+        create: yes
+        validate: '/usr/sbin/visudo -cf %s'
+      notify: Reload hostname
+
+    - name: Ensure /etc/hostname contains only short hostname
+      ansible.builtin.copy:
+        content: "{{ hostname }}\n"
+        dest: /etc/hostname
+        owner: root
+        group: root
+        mode: '0644'
+
 ## install packages
 
     - name: Install required packages
@@ -129,8 +154,6 @@
           - apparmor-utils
           - apparmor-profiles
           - jq
-          - unbound
-          - bind9-dnsutils
           - systemd-container            
         state: present
         update_cache: yes
@@ -217,6 +240,8 @@
         - { zone: "nfs", port: "32767/udp" }
         - { zone: "nfs", port: "32765/tcp" }
         - { zone: "nfs", port: "32765/udp" }
+        - { zone: "containers", port: "8053/tcp" }
+        - { zone: "containers", port: "8053/udp" }
         - { zone: "containers", port: "8080/tcp" }
         - { zone: "containers", port: "8081/tcp" }
         - { zone: "containers", port: "8082/tcp" }
@@ -318,6 +343,16 @@
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn'" }
 
+## Deploy unbound configuration
+
+    - name: Deploy unbound config file
+      ansible.builtin.template:
+          src: file_server/unbound/unbound.conf.j2
+          dest: /etc/unbound/unbound.conf.d/pi-hole.conf
+          owner: root
+          group: root
+          mode: '0644'
+
 ## Configure fastfetch for running after login
 
     - name: Make fastfetch run for every interactive shell
@@ -387,16 +422,6 @@
           port=32765
           udp-port=32765
       
-## Configure unbound
-
-    - name: Deploy unbound config file
-      ansible.builtin.template:
-          src: file_server/unbound/unbound.conf.j2
-          dest: /etc/unbound/unbound.conf.d/pi-hole.conf
-          owner: root
-          group: root
-          mode: '0644'
-
 ## Configure samba
 
     - name: Ensure michael is in the sambashare group
@@ -555,6 +580,38 @@
         group: podman
         mode: '0644'
 
+# Unbound
+
+    - name: Deploy Unbound compose file
+      ansible.builtin.template:
+        src: file_server/compose/unbound/compose.yml.j2
+        dest: /home/podman/compose/unbound/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start NTP
+      copy:
+        dest: /home/podman/.config/systemd/user/unbound.service
+        content: |
+          [Unit]
+          Description=Unbound
+          
+          [Service]
+          WorkingDirectory=/home/podman/compose/unbound
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
 # Nginx Proxy Manager
 
     - name: Deploy npm compose file
@@ -637,7 +694,6 @@
         group: podman
         mode: '0644'
 
-
     - name: Deploy Pihole-clients env file
       ansible.builtin.template:
         src: file_server/compose/pihole-clients/.env.j2
@@ -677,7 +733,6 @@
         owner: podman
         group: podman
         mode: '0644'
-
 
     - name: Deploy Pihole-servers env file
       ansible.builtin.template:
