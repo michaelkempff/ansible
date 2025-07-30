@@ -599,13 +599,13 @@
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
-      command: machinectl shell podman@ -- systemctl --user daemon-reload
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
     - name: Enable NPM service for podman
-      command: machinectl shell podman@ -- systemctl --user enable npm.service
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
 
     - name: Start NPM service for podman
-      command: machinectl shell podman@ -- systemctl --user start npm.service
+      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start npm.service'
 
 ## Finishing deployment by rebooting the server
 
