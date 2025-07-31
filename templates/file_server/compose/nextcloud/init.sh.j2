@@ -2,8 +2,8 @@
 
 set -e
 
-echo "🕒 Waiting for database (${MYSQL_HOST})..."
-until mysqladmin ping -h "${MYSQL_HOST}" --silent; do
+echo "🕒 Waiting for database (${MYSQL_HOST}:3306)..."
+while ! (echo > /dev/tcp/${MYSQL_HOST}/3306) >/dev/null 2>&1; do
   sleep 1
 done
 
