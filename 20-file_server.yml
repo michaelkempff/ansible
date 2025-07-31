@@ -155,6 +155,8 @@
           - systemd-container            
           - unbound
           - bind9-utils
+          - dnsutils
+          - plocate
         state: present
         update_cache: yes
 
@@ -354,6 +356,12 @@
           group: root
           mode: '0644'
 
+    - name: Stop en disable unbound-resolvconf.service
+      ansible.builtin.systemd:
+        name: unbound-resolvconf.service
+        state: stopped
+        enabled: false
+
 ## Configure fastfetch for running after login
 
     - name: Make fastfetch run for every interactive shell
@@ -422,6 +430,19 @@
           [statd]
           port=32765
           udp-port=32765
+
+    - name: Create valid /etc/idmapd.conf
+      copy:
+        dest: /etc/idmapd.conf
+        content: |
+          [General]
+          Verbosity = 0
+          Domain = home.arpa
+
+          [Mapping]
+          Nobody-User = nobody
+          Nobody-Group = nogroup
+        mode: '0644'
       
 ## Configure samba
 
