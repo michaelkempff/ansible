@@ -18,10 +18,17 @@ sleep 20
 echo "⚙️ Checking if Nextcloud is installed..."
 if php occ status | grep -q "installed: true"; then
   echo "✅ Nextcloud is installed – configuring settings..."
-  php occ config:system:set trusted_domains 1 --value="nextcloud.storagemedia.online"
-  php occ config:system:set overwritehost --value="nextcloud.storagemedia.online"
+  php occ config:system:set trusted_domains 1 --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
+  php occ config:system:set overwritehost --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
   php occ config:system:set overwriteprotocol --value="https"
-  php occ config:system:set trusted_proxies 0 --value="10.10.116.20"
+  php occ config:system:set trusted_proxies 0 --value="${NEXTCLOUD_TRUSTED_PROXY}"
+  php occ config:system:set overwrite.cli.url --value="https://${NEXTCLOUD_TRUSTED_DOMAIN}"
+  php occ config:system:set memcache.locking --value '\OC\Memcache\Redis' --type=string
+  php occ config:system:set memcache.local --value '\OC\Memcache\Redis' --type=string
+  php occ config:system:set redis host --value='redis' --type=string
+  php occ config:system:set redis port --value='6379' --type=integer
+  php occ config:system:set redis timeout --value='1.5' --type=double
+  php occ background:cron
 else
   echo "⏭️ Skipping occ config – Nextcloud not yet installed."
 fi
