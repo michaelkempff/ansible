@@ -148,6 +148,9 @@
           - lynis
           - podman
           - podman-compose
+          - slirp4netns
+          - uidmap
+          - python3-podman
           - auditd
           - apparmor-utils
           - apparmor-profiles
@@ -567,6 +570,48 @@
         owner: podman
         group: podman
         mode: '0644'
+
+## Set file ownership for podman paths
+
+    - name: Create required directories for podman 
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: podman
+        group: podman
+        mode: '0644'
+      loop:
+        - /home/podman/data/nextcloud/nextcloud_db
+        - /home/podman/data/nextcloud/nextcloud_html
+        - /home/podman/data/nextcloud/nextcloud_html/config
+        - /home/podman/data/nextcloud/nextcloud_html/data
+        
+    - name: Get base subuid for user 'podman'
+      ansible.builtin.command: awk -F: '/^podman:/ {print $2}' /etc/subuid
+      register: podman_subuid
+      changed_when: false
+
+    - name: Get base subgid for user 'podman'
+      ansible.builtin.command: awk -F: '/^podman:/ {print $2}' /etc/subgid
+      register: podman_subgid
+      changed_when: false
+
+    - name: Calculate mapped UID and GID for www-data (UID 33)
+      set_fact:
+        wwwdata_host_uid: "{{ podman_subuid.stdout | int + 33 }}"
+        wwwdata_host_gid: "{{ podman_subgid.stdout | int + 33 }}"
+
+    - name: Ensure correct ownership and permissions for Nextcloud directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: "{{ wwwdata_host_uid }}"
+        group: "{{ wwwdata_host_gid }}"
+        mode: "u+rwX"
+        recurse: yes
+      loop:
+        - /home/podman/data/nextcloud/nextcloud_html
+        - /home/podman/data/nextcloud/nextcloud_html/config
+        - /home/podman/data/nextcloud/nextcloud_html/data
 
 ## Deploy podman containers
 
