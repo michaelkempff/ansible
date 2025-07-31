@@ -624,19 +624,30 @@
         - /home/podman/data/nextcloud/nextcloud_html/config
         - /home/podman/data/nextcloud/nextcloud_html/data
 
-    - name: Ensure correct ownership for MariaDB volume (UID 999)
-      ansible.builtin.command:
-        argv:
-          - chown
-          - "-R"
-          - "{{ subuid.stdout | int + 999 }}:{{ subgid.stdout | int + 999 }}"
-          - /home/podman/data/nextcloud/nextcloud_db
+    - name: Get UID of mysql user inside container
+      ansible.builtin.command: >
+        podman run --rm mariadb:latest id -u mysql
+      register: mysql_uid_raw
+      changed_when: false
 
-    - name: Ensure permissions on MariaDB volume
+    - name: Get GID of mysql user inside container
+      ansible.builtin.command: >
+        podman run --rm mariadb:latest id -g mysql
+      register: mysql_gid_raw
+      changed_when: false
+
+    - name: Calculate mapped UID and GID for mysql
+      set_fact:
+        mysql_host_uid: "{{ podman_subuid.stdout | int + (mysql_uid_raw.stdout | int) }}"
+        mysql_host_gid: "{{ podman_subgid.stdout | int + (mysql_gid_raw.stdout | int) }}"
+
+    - name: Ensure correct ownership for MariaDB volume
       ansible.builtin.file:
         path: /home/podman/data/nextcloud/nextcloud_db
-        mode: "u+rwX"
+        owner: "{{ mysql_host_uid }}"
+        group: "{{ mysql_host_gid }}"
         recurse: yes
+        mode: "u+rwX"
 
 ## Deploy podman containers
 
