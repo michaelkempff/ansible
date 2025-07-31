@@ -28,7 +28,7 @@
         - /srv/nvme  # Base for NVMe subvolumes
         - /srv/nfs   # Base for NFS bind mounts
         - /srv/smb   # Base for SMB bind mounts
-        - /srv/mnt   # Directory for NFS mounts
+        - /srv/mnt   # Directory for remote NFS mounts
         - /srv/nfs/backup
         - /srv/nfs/iso
         - /srv/smb/michael
