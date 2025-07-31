@@ -1,0 +1,29 @@
+#!/bin/bash
+
+set -e
+
+echo "🕒 Waiting for database (${MYSQL_HOST})..."
+until nc -z "${MYSQL_HOST}" 3306; do
+  sleep 1
+done
+
+echo "🕒 Waiting for config.php to be created..."
+while [ ! -f /var/www/html/config/config.php ]; do
+  sleep 2
+done
+
+echo "🔧 Fixing ownership and permissions in container user namespace..."
+chown -R "$(id -u):$(id -g)" /var/www/html
+chmod -R u+rwX /var/www/html
+
+echo "🕒 Waiting a bit longer for initialization to finish..."
+sleep 10
+
+echo "⚙️ Configuring Nextcloud via occ..."
+php occ config:system:set trusted_domains 1 --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
+php occ config:system:set overwritehost --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
+php occ config:system:set overwriteprotocol --value="https"
+php occ config:system:set trusted_proxies 0 --value="${NEXTCLOUD_TRUSTED_PROXY}"
+
+echo "✅ Initialization complete – starting Apache"
+exec apache2-foreground

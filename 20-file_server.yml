@@ -794,6 +794,14 @@
         group: podman
         mode: '0644'
 
+    - name: Deploy Nextcloud post install script
+      ansible.builtin.template:
+        src: file_server/compose/nextcloud/init.sh.j2
+        dest: /home/podman/compose/nextcloud/init.sh
+        owner: podman
+        group: podman
+        mode: '0644'
+
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
