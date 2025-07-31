@@ -378,7 +378,7 @@
             fastfetch
           fi
 
-## Configure nfs and shares
+## Configure NFS and shares
     
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
@@ -444,7 +444,7 @@
           Nobody-Group = nogroup
         mode: '0644'
       
-## Configure samba
+## Configure Samba
 
     - name: Ensure michael is in the sambashare group
       ansible.builtin.user:
@@ -541,14 +541,6 @@
         owner: podman
         group: podman
         mode: '0644'
-
-    - name: Ensure /home/podman/data is owned by podman:podman (recursively)
-      ansible.builtin.file:
-        path: /home/podman/data
-        owner: podman
-        group: podman
-        recurse: yes
-        state: directory
 
     - name: Create systemd user unit directory
       file:
