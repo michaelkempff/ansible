@@ -807,53 +807,35 @@
     - name: Reload systemd user units for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
-# NTP
+# NTP Server
 
     - name: Enable NTP service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
-
-    - name: Start NTP service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start ntp.service'
 
 # Nginx Proxy Manager
 
     - name: Enable NPM service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
 
-    - name: Start NPM service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start npm.service'
-
 # Heimdall
 
     - name: Enable Heimdall service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
-
-    - name: Start Heimdall service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start heimdall.service'
 
 # Pihole-clients
 
     - name: Enable Pihole-clients service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
 
-    - name: Start Pihole-clients service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-clients.service'
-
 # Pihole-servers
 
     - name: Enable Pihole-servers service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
 
-    - name: Start Pihole-servers service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start pihole-servers.service'
-
 # Nextcloud
 
     - name: Enable Nextcloud service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
-
-    - name: Start Nextcloud service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user start nextcloud.service'
 
 ## Finishing deployment by rebooting the server
 

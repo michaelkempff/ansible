@@ -19,11 +19,16 @@ chmod -R u+rwX /var/www/html
 echo "🕒 Waiting a bit longer for initialization to finish..."
 sleep 10
 
-echo "⚙️ Configuring Nextcloud via occ..."
-php occ config:system:set trusted_domains 1 --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
-php occ config:system:set overwritehost --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
-php occ config:system:set overwriteprotocol --value="https"
-php occ config:system:set trusted_proxies 0 --value="${NEXTCLOUD_TRUSTED_PROXY}"
+echo "⚙️ Checking if Nextcloud is installed..."
+if php occ status | grep -q "installed: true"; then
+  echo "✅ Nextcloud is installed – configuring settings..."
+  php occ config:system:set trusted_domains 1 --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
+  php occ config:system:set overwritehost --value="${NEXTCLOUD_TRUSTED_DOMAIN}"
+  php occ config:system:set overwriteprotocol --value="https"
+  php occ config:system:set trusted_proxies 0 --value="${NEXTCLOUD_TRUSTED_PROXY}"
+else
+  echo "⏭️ Skipping occ config – Nextcloud not yet installed."
+fi
 
 echo "✅ Initialization complete – starting Apache"
 exec apache2-foreground
