@@ -27,8 +27,6 @@ services:
       - nextcloud-db
     volumes:
       - /home/podman/data/nextcloud/nextcloud_html:/var/www/html
-      - /home/podman/data/nextcloud/init.sh:/init.sh:ro
-    command: ["/bin/bash", "/init.sh"]
     environment:
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
