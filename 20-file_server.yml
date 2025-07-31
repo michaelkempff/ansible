@@ -797,7 +797,7 @@
     - name: Deploy Nextcloud post install script
       ansible.builtin.template:
         src: file_server/compose/nextcloud/init.sh.j2
-        dest: /home/podman/compose/nextcloud/init.sh
+        dest: /home/podman/data/nextcloud/init.sh
         owner: podman
         group: podman
         mode: '0644'
