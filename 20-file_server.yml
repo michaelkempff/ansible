@@ -587,12 +587,22 @@
         - /home/podman/data/nextcloud/nextcloud_html/data
         
     - name: Get base subuid for user 'podman'
-      ansible.builtin.command: awk -F: '/^podman:/ {print $2}' /etc/subuid
+      ansible.builtin.command:
+        argv:
+          - awk
+          - '-F:'
+          - '$1 == "podman" { print $2 }'
+          - /etc/subuid
       register: podman_subuid
       changed_when: false
 
     - name: Get base subgid for user 'podman'
-      ansible.builtin.command: awk -F: '/^podman:/ {print $2}' /etc/subgid
+      ansible.builtin.command:
+        argv:
+          - awk
+          - '-F:'
+          - '$1 == "podman" { print $2 }'
+          - /etc/subgid
       register: podman_subgid
       changed_when: false
 
@@ -612,6 +622,20 @@
         - /home/podman/data/nextcloud/nextcloud_html
         - /home/podman/data/nextcloud/nextcloud_html/config
         - /home/podman/data/nextcloud/nextcloud_html/data
+
+    - name: Ensure correct ownership for MariaDB volume (UID 999)
+      ansible.builtin.command:
+        argv:
+          - chown
+          - "-R"
+          - "{{ subuid.stdout | int + 999 }}:{{ subgid.stdout | int + 999 }}"
+          - /home/podman/data/nextcloud/nextcloud_db
+
+    - name: Ensure permissions on MariaDB volume
+      ansible.builtin.file:
+        path: /home/podman/data/nextcloud/nextcloud_db
+        mode: "u+rwX"
+        recurse: yes
 
 ## Deploy podman containers
 
