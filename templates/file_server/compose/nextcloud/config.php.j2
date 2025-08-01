@@ -1,0 +1,53 @@
+<?php
+$CONFIG = array (
+  'htaccess.RewriteBase' => '/',
+  'memcache.local' => '\\OC\\Memcache\\APCu',
+  'apps_paths' => 
+  array (
+    0 => 
+    array (
+      'path' => '/var/www/html/apps',
+      'url' => '/apps',
+      'writable' => false,
+    ),
+    1 => 
+    array (
+      'path' => '/var/www/html/custom_apps',
+      'url' => '/custom_apps',
+      'writable' => true,
+    ),
+  ),
+  'memcache.distributed' => '\\OC\\Memcache\\Redis',
+  'memcache.locking' => '\\OC\\Memcache\\Redis',
+  'redis' => 
+  array (
+    'host' => 'redis',
+    'password' => '',
+    'port' => 6379,
+  ),
+  'upgrade.disable-web' => true,
+  'passwordsalt' => '370dpo5+pekRGbsuxCZEFDAi8Tc+Mm',
+  'secret' => 'LYlOCfTDFp6GZc17E9FT66x0zoy6OT8m4cB1dH52hMYFTnEI',
+  'trusted_domains' => 
+  array (
+    0 => '10.11.112.20',
+    1 => 'nextcloud.storagemedia.online',
+  ),
+  'trusted_proxies' => ['10.10.116.20'],
+  'htaccess.RewriteBase' => '/',
+  'overwritehost' => 'nextcloud.storagemedia.online',
+  'overwriteprotocol' => 'https',
+  'datadirectory' => '/var/www/html/data',
+  'dbtype' => 'mysql',
+  'version' => '31.0.7.1',
+  'overwrite.cli.url' => 'https://nextcloud.storagemedia.online',
+  'dbname' => 'nextcloud',
+  'dbhost' => 'nextcloud-db',
+  'dbport' => '',
+  'dbtableprefix' => 'oc_',
+  'mysql.utf8mb4' => true,
+  'dbuser' => 'nextcloud',
+  'dbpassword' => 'Relic3-Header5-Putt9-Educated5-Channel9',
+  'installed' => true,
+  'instanceid' => 'ocnlzrhcnmjv',
+);

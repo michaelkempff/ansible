@@ -863,44 +863,54 @@
         group: podman
         mode: '0644'
 
-    - name: Install systemd unit to start Nextcloud cron service
-      copy:
-        dest: /home/podman/.config/systemd/user/nextcloud-cron.service
-        content: |
-          [Unit]
-          Description=Nextcloud Cron
-
-          [Service]
-          ExecStart=/usr/bin/podman exec -u www-data nextcloud-app php /var/www/html/cron.php
-        owner: podman
-        group: podman
-        mode: '0644'
-
-    - name: Install systemd unit to start Nextcloud cron timer
-      copy:
-        dest: /home/podman/.config/systemd/user/nextcloud-cron.timer
-        content: |
-          [Unit]
-          Description=Run Nextcloud cron.php every 5 minutes
-
-          [Timer]
-          OnBootSec=2min
-          OnUnitActiveSec=5min
-          Persistent=true
-
-          [Install]
-          WantedBy=default.target
-        owner: podman
-        group: podman
-        mode: '0644'
-
-    - name: Deploy Nextcloud post install script
+  - name: Deploy Nextcloud config.php file
       ansible.builtin.template:
-        src: file_server/compose/nextcloud/init.sh.j2
-        dest: /home/podman/data/nextcloud/init.sh
+        src: file_server/compose/nextcloud/config.php.j2
+        dest: /home/podman/compose/nextcloud/config.php
         owner: podman
         group: podman
         mode: '0644'
+
+  
+
+    # - name: Install systemd unit to start Nextcloud cron service
+    #   copy:
+    #     dest: /home/podman/.config/systemd/user/nextcloud-cron.service
+    #     content: |
+    #       [Unit]
+    #       Description=Nextcloud Cron
+
+    #       [Service]
+    #       ExecStart=/usr/bin/podman exec -u www-data nextcloud-app php /var/www/html/cron.php
+    #     owner: podman
+    #     group: podman
+    #     mode: '0644'
+
+    # - name: Install systemd unit to start Nextcloud cron timer
+    #   copy:
+    #     dest: /home/podman/.config/systemd/user/nextcloud-cron.timer
+    #     content: |
+    #       [Unit]
+    #       Description=Run Nextcloud cron.php every 5 minutes
+
+    #       [Timer]
+    #       OnBootSec=2min
+    #       OnUnitActiveSec=5min
+    #       Persistent=true
+
+    #       [Install]
+    #       WantedBy=default.target
+    #     owner: podman
+    #     group: podman
+    #     mode: '0644'
+
+    # - name: Deploy Nextcloud post install script
+    #   ansible.builtin.template:
+    #     src: file_server/compose/nextcloud/init.sh.j2
+    #     dest: /home/podman/data/nextcloud/init.sh
+    #     owner: podman
+    #     group: podman
+    #     mode: '0644'
 
 ## Reload systemd and enable/start containers
 
@@ -937,8 +947,8 @@
     - name: Enable Nextcloud service for podman
       command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
 
-    - name: Enable cron timer
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
+    # - name: Enable cron timer
+    #   command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
       
 ## Finishing deployment by rebooting the server
 

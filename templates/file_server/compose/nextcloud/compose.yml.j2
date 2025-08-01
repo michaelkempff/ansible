@@ -27,6 +27,7 @@ services:
       - nextcloud-db
     volumes:
       - /home/podman/data/nextcloud/nextcloud_html:/var/www/html
+      - /home/podman/compose/nextcloud/config.php:/var/www/html/config/config.php
     environment:
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
