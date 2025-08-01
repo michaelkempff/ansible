@@ -571,6 +571,16 @@
         group: podman
         mode: '0644'
 
+    # - name: Create required directories for podman 
+    #   ansible.builtin.file:
+    #     path: "{{ item }}"
+    #     state: directory
+    #     owner: podman
+    #     group: podman
+    #     mode: '0644'
+    #   loop:
+    #     - /home/podman/data/nextcloud/nextcloud_html/data
+
 ## Set file ownership for podman paths
 
     # - name: Create required directories for podman 
@@ -871,7 +881,7 @@
         group: podman
         mode: '0644'
 
-  
+
 
     # - name: Install systemd unit to start Nextcloud cron service
     #   copy:
@@ -944,8 +954,8 @@
 
 # Nextcloud
 
-    - name: Enable Nextcloud service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
+    # - name: Enable Nextcloud service for podman
+    #   command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
 
     # - name: Enable cron timer
     #   command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
