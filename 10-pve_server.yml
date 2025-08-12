@@ -442,14 +442,14 @@
           ############################################################
           # Minimal AIDE configuration (Debian 13)
           ############################################################
-          database = file:/var/lib/aide/aide.db
-          database_out = file:/var/lib/aide/aide.db.new
-          gzip_dbout = yes
+          database      = file:/var/lib/aide/aide.db
+          database_out  = file:/var/lib/aide/aide.db.new
+          gzip_dbout    = yes
 
-          # Define checksums and attributes
-          R = p+i+n+u+g+s+m+S+acl+selinux+xattrs+sha512
+          # Conservative attribute set (portable on Debian):
+          # perms,inode,links,uid,gid,size,mtime,ACLs,extended attrs,sha512 checksum
+          R = p+i+n+u+g+s+m+acl+xattrs+sha512
 
-          # Directories to monitor
           /etc       R
           /bin       R
           /sbin      R
@@ -457,19 +457,20 @@
           /usr/sbin  R
           /var/log   R
 
-          # Exclude runtime files
           !/var/log/audit/*
 
           # End of rules
 
-    - name: Initialize AIDE database (idempotent)
-      command: /usr/sbin/aideinit -y -f
-      args:
-        creates: /var/lib/aide/aide.db
+    - name: Ensure AIDE state dir exists
+      file:
+        path: /var/lib/aide
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
-    - name: Move freshly initialized AIDE database into place
-      become: yes
-      command: mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+    - name: Initialize AIDE database (idempotent)
+      command: /usr/sbin/aideinit -y
       args:
         creates: /var/lib/aide/aide.db
 
