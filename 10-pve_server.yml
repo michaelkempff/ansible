@@ -440,11 +440,11 @@
         mode: '0644'
         content: |
           ############################################################
-          # Sample AIDE configuration
+          # Minimal AIDE configuration (Debian 13)
           ############################################################
-          database=file:/var/lib/aide/aide.db
-          database_out=file:/var/lib/aide/aide.db.new
-          gzip_dbout=yes
+          database = file:/var/lib/aide/aide.db
+          database_out = file:/var/lib/aide/aide.db.new
+          gzip_dbout = yes
 
           # Define checksums and attributes
           R = p+i+n+u+g+s+m+S+acl+selinux+xattrs+sha512
@@ -462,11 +462,10 @@
 
           # End of rules
 
-    - name: Initialize AIDE database
-      become: yes
-      command: /usr/bin/aide --init --config=/etc/aide/aide.conf
+    - name: Initialize AIDE database (idempotent)
+      command: /usr/sbin/aideinit -y -f
       args:
-        creates: /var/lib/aide/aide.db.new
+        creates: /var/lib/aide/aide.db
 
     - name: Move freshly initialized AIDE database into place
       become: yes
