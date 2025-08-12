@@ -432,7 +432,15 @@
         state: present
         update_cache: yes
 
-    - name: Deploy basic AIDE configuration
+    - name: Ensure AIDE state dir exists
+      file:
+        path: /var/lib/aide
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Deploy minimal, portable AIDE configuration
       copy:
         dest: /etc/aide/aide.conf
         owner: root
@@ -440,15 +448,15 @@
         mode: '0644'
         content: |
           ############################################################
-          # Minimal AIDE configuration (Debian 13)
+          # Minimal AIDE configuration (portable on Debian 13)
           ############################################################
           database      = file:/var/lib/aide/aide.db
           database_out  = file:/var/lib/aide/aide.db.new
           gzip_dbout    = yes
 
-          # Conservative attribute set (portable on Debian):
-          # perms,inode,links,uid,gid,size,mtime,ACLs,extended attrs,sha512 checksum
-          R = p+i+n+u+g+s+m+acl+xattrs+sha512
+          # Conservative attribute set (no selinux/acl/xattrs):
+          # perms,inode,links,uid,gid,size,mtime,sha512
+          R = p+i+n+u+g+s+m+sha512
 
           /etc       R
           /bin       R
@@ -459,20 +467,23 @@
 
           !/var/log/audit/*
 
-          # End of rules
+    - name: Validate AIDE config with verbose parser (do not fail play)
+      command: aide --init -V 20 -c /etc/aide/aide.conf
+      register: aide_validate
+      changed_when: false
+      failed_when: false
 
-    - name: Ensure AIDE state dir exists
-      file:
-        path: /var/lib/aide
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
+    - name: Show AIDE validation diagnostics (only on error)
+      debug:
+        var: aide_validate.stderr_lines
+      when: aide_validate.rc != 0
 
-    - name: Initialize AIDE database (idempotent)
+    - name: Initialize AIDE database (idempotent, only if validation OK)
       command: /usr/sbin/aideinit -y
       args:
         creates: /var/lib/aide/aide.db
+      when: aide_validate.rc == 0
+
 
     - name: Schedule daily AIDE check at 6AM
       cron:
