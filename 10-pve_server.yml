@@ -260,7 +260,7 @@
           - apparmor-utils
           - apparmor-profiles
           - git
-          - neofetch
+          - fastfetch
           - apt-listbugs
           - needrestart
           - debian-goodies
