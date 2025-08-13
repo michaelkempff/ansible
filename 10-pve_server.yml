@@ -78,6 +78,8 @@
         opts: bind,nodev,nosuid,noexec
         state: mounted
 
+## Configure DNS
+
     - name: Overwrite /etc/resolv.conf with two nameservers
       ansible.builtin.copy:
         dest: /etc/resolv.conf
@@ -96,45 +98,53 @@
         name: networking
         state: restarted
 
-    - name: Deploy host-level firewall config
+## Enable firewall
+
+    - name: Get node short hostname
+      command: hostname -s
+      register: nodename
+      changed_when: false
+
+    - name: Cluster FW set policies to ACCEPT
+      command: pvesh set /cluster/firewall/options --policy_in ACCEPT --policy_out ACCEPT
+
+    - name: Cluster FW base rules (SSH + ICMP) on vmbr0 from mgmt subnet
       shell: |
-        cat > /etc/pve/firewall/{{ inventory_hostname }}.fw << 'EOF'
-        [OPTIONS]
-        enable: 1
-
-        [RULES]
-        # built-in allow loopback + established/related
-
-        # only on vmbr0:
-        IN ACCEPT -i vmbr0 tcp dport 22        comment "SSH"
-        IN ACCEPT -i vmbr0 udp dport 123       comment "NTP"
-        IN ACCEPT -i vmbr0 tcp dport 8006      comment "PVE GUI"
-        IN ACCEPT -i vmbr0 tcp dport 5900-5999 comment "VNC"
-        IN ACCEPT -i vmbr0 tcp dport 3128      comment "SPICE"
-        IN ACCEPT -i vmbr0 tcp dport 111       comment "RPCBind TCP"
-        IN ACCEPT -i vmbr0 udp dport 111       comment "RPCBind UDP"
-
-        # everything else: drop
-        IN DROP comment "Drop all other inbound"
-        EOF
+        set -e
+        addc(){ pvesh create /cluster/firewall/rules "$@" >/dev/null 2>&1 || true; }
+        addc -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 22  -source 10.10.112.0/24 -ipversion 4 -pos 0 -enable 1 -comment 'SSH mgmt'
+        addc -type in -action ACCEPT -iface vmbr0 -proto icmp               -source 10.10.112.0/24 -ipversion 4 -pos 1 -enable 1 -comment 'ICMP mgmt'
       args:
         executable: /bin/bash
 
-    - name: Read cluster firewall options
-      command: pvesh get /cluster/firewall/options --output-format json
-      register: fw_opts
-      changed_when: false
-
-    - name: Enable cluster firewall when disabled
+    - name: Enable cluster firewall
       command: pvesh set /cluster/firewall/options --enable 1
-      when: (fw_opts.stdout | from_json).enable | default(0) | int == 0
 
+    - name: Enable node firewall
+      command: pvesh set /nodes/{{ nodename.stdout }}/firewall/options --enable 1
+
+    - name: Node FW base rules on vmbr0 (incl. ICMP)
+      shell: |
+        set -e
+        add(){ pvesh create /nodes/{{ nodename.stdout }}/firewall/rules "$@" >/dev/null 2>&1 || true; }
+        add -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 22        -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'SSH'
+        add -type in -action ACCEPT -iface vmbr0 -proto udp  -dport 123       -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'NTP'
+        add -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 8006      -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'PVE GUI'
+        add -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 5900:5999 -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'VNC'
+        add -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 3128      -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'SPICE'
+        add -type in -action ACCEPT -iface vmbr0 -proto tcp  -dport 111       -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'RPCBind TCP'
+        add -type in -action ACCEPT -iface vmbr0 -proto udp  -dport 111       -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'RPCBind UDP'
+        add -type in -action ACCEPT -iface vmbr0 -proto icmp                  -source 10.10.112.0/24 -ipversion 4 -enable 1 -comment 'ICMP'
+      args:
+        executable: /bin/bash
 
     - name: Reload Proxmox firewall
       service:
         name: pve-firewall
         state: reloaded
-        enabled: yes
+        enabled: true
+
+## Configure SSH
 
     - name: Deploy SSH hardening drop-in
       copy:
@@ -167,6 +177,8 @@
         name: ssh
         state: restarted
 
+## Set login banners
+
     - name: Deploy login warning banner for /etc/issue
       copy:
         dest: /etc/issue
@@ -194,6 +206,7 @@
           | Evidence of unauthorised activities may be         |
           | disclosed to the appropriate authorities.          |
           +----------------------------------------------------+
+## Configure Fail2ban
 
     - name: Install fail2ban
       apt:
@@ -245,6 +258,8 @@
         cp /etc/fail2ban/jail.conf /etc/fail2ban/jail.local
       args:
         creates: /etc/fail2ban/jail.local
+
+## Upgrade software and install packages
         
     - name: Update en upgrade alle pakketten
       apt:
@@ -436,7 +451,9 @@
         mode: '0750'
       loop: "{{ home_dirs.files }}"
 
-    - name: Install AIDE package
+## Configure AIDE
+
+    - name: Ensure AIDE is installed
       apt:
         name: aide
         state: present
@@ -448,17 +465,28 @@
         state: directory
         mode: '0755'
 
-    - name: Write clean aide.conf (LF endings, no BOM)
-      copy:
-        dest: /etc/aide/aide.conf
-        mode: '0644'
-        newline_sequence: '\n'
-        content: |
+    - name: Define AIDE config variants
+      set_fact:
+        aide_conf_variant_a: |
+          database=/var/lib/aide/aide.db
+          database_out=/var/lib/aide/aide.db.new
+          gzip_dbout=yes
+
+          R = p+i+u+g+m+sha256
+
+          /etc       R
+          /bin       R
+          /sbin      R
+          /usr/bin   R
+          /usr/sbin  R
+          /var/log   R
+          !/var/log/audit/*
+        aide_conf_variant_b: |
           database=file:/var/lib/aide/aide.db
           database_out=file:/var/lib/aide/aide.db.new
           gzip_dbout=yes
 
-          R = p+i+n+u+g+s+m+sha512
+          R = p+i+u+g+m+sha256
 
           /etc       R
           /bin       R
@@ -468,26 +496,59 @@
           /var/log   R
           !/var/log/audit/*
 
-    - name: Strip UTF-8 BOM if present
-      shell: "sed -i '1s/^\\xEF\\xBB\\xBF//' /etc/aide/aide.conf"
-      args: { warn: false }
+    - name: Write AIDE config (Variant A - plain paths)
+      copy:
+        dest: /etc/aide/aide.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: "{{ aide_conf_variant_a }}"
 
-    - name: Strip CRLF if present
-      replace:
-        path: /etc/aide/aide.conf
-        regexp: '\r$'
-        replace: ''
-
-    - name: Verbose AIDE init (creates .new)
+    - name: Validate AIDE config (Variant A)
       command: aide --init -V 200 -c /etc/aide/aide.conf
-      args:
-        creates: /var/lib/aide/aide.db.new
+      register: aide_validate_a
+      changed_when: false
+      failed_when: false
 
-    - name: Install AIDE database
-      command: mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
+    - name: Write AIDE config (Variant B - file URI)
+      copy:
+        dest: /etc/aide/aide.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: "{{ aide_conf_variant_b }}"
+      when: aide_validate_a.rc != 0
+
+    - name: Validate AIDE config (Variant B)
+      command: aide --init -V 200 -c /etc/aide/aide.conf
+      register: aide_validate_b
+      changed_when: false
+      failed_when: false
+      when: aide_validate_a.rc != 0
+
+    - name: Show AIDE validation diagnostics
+      debug:
+        msg: |
+          Variant A rc={{ aide_validate_a.rc }}
+          stdout_A:
+          {{ aide_validate_a.stdout | default('') }}
+          stderr_A:
+          {{ aide_validate_a.stderr | default('') }}
+
+          Variant B rc={{ aide_validate_b.rc | default('N/A') }}
+          stdout_B:
+          {{ aide_validate_b.stdout | default('') }}
+          stderr_B:
+          {{ aide_validate_b.stderr | default('') }}
+      when:
+        - aide_validate_a.rc != 0
+        - (aide_validate_b.rc is not defined) or (aide_validate_b.rc != 0)
+
+    - name: Initialize AIDE database
+      command: /usr/sbin/aideinit -y
       args:
         creates: /var/lib/aide/aide.db
-        removes: /var/lib/aide/aide.db.new
+      when: (aide_validate_a.rc == 0) or ((aide_validate_b.rc is defined) and (aide_validate_b.rc == 0))
 
     - name: Schedule daily AIDE check
       cron:
