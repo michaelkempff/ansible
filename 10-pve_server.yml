@@ -49,7 +49,7 @@
         backrefs: yes
       register: grub_line
 
-    - name: Update grub-config indien aangepast
+    - name: Update grub-config 
       ansible.builtin.command:
         cmd: update-grub
 
@@ -59,7 +59,7 @@
         path: /tmp
         src: tmpfs
         fstype: tmpfs
-        opts: size=2G,mode=1777,nodev,nosuid,noexec
+        opts: size=8G,mode=1777,nodev,nosuid,noexec
         state: mounted
 
     - name: Prepare /var/tmp for bind‐mount
@@ -119,6 +119,16 @@
         EOF
       args:
         executable: /bin/bash
+
+    - name: Read cluster firewall options
+      command: pvesh get /cluster/firewall/options --output-format json
+      register: fw_opts
+      changed_when: false
+
+    - name: Enable cluster firewall when disabled
+      command: pvesh set /cluster/firewall/options --enable 1
+      when: (fw_opts.stdout | from_json).enable | default(0) | int == 0
+
 
     - name: Reload Proxmox firewall
       service:
@@ -436,26 +446,18 @@
       file:
         path: /var/lib/aide
         state: directory
-        owner: root
-        group: root
         mode: '0755'
 
-    - name: Deploy minimal, portable AIDE configuration
+    - name: Write clean aide.conf (LF endings, no BOM)
       copy:
         dest: /etc/aide/aide.conf
-        owner: root
-        group: root
         mode: '0644'
+        newline_sequence: '\n'
         content: |
-          ############################################################
-          # Minimal AIDE configuration (portable on Debian 13)
-          ############################################################
-          database      = file:/var/lib/aide/aide.db
-          database_out  = file:/var/lib/aide/aide.db.new
-          gzip_dbout    = yes
+          database=file:/var/lib/aide/aide.db
+          database_out=file:/var/lib/aide/aide.db.new
+          gzip_dbout=yes
 
-          # Conservative attribute set (no selinux/acl/xattrs):
-          # perms,inode,links,uid,gid,size,mtime,sha512
           R = p+i+n+u+g+s+m+sha512
 
           /etc       R
@@ -464,34 +466,37 @@
           /usr/bin   R
           /usr/sbin  R
           /var/log   R
-
           !/var/log/audit/*
 
-    - name: Validate AIDE config with verbose parser (do not fail play)
-      command: aide --init -V 20 -c /etc/aide/aide.conf
-      register: aide_validate
-      changed_when: false
-      failed_when: false
+    - name: Strip UTF-8 BOM if present
+      shell: "sed -i '1s/^\\xEF\\xBB\\xBF//' /etc/aide/aide.conf"
+      args: { warn: false }
 
-    - name: Show AIDE validation diagnostics (only on error)
-      debug:
-        var: aide_validate.stderr_lines
-      when: aide_validate.rc != 0
+    - name: Strip CRLF if present
+      replace:
+        path: /etc/aide/aide.conf
+        regexp: '\r$'
+        replace: ''
 
-    - name: Initialize AIDE database (idempotent, only if validation OK)
-      command: /usr/sbin/aideinit -y
+    - name: Verbose AIDE init (creates .new)
+      command: aide --init -V 200 -c /etc/aide/aide.conf
+      args:
+        creates: /var/lib/aide/aide.db.new
+
+    - name: Install AIDE database
+      command: mv /var/lib/aide/aide.db.new /var/lib/aide/aide.db
       args:
         creates: /var/lib/aide/aide.db
-      when: aide_validate.rc == 0
+        removes: /var/lib/aide/aide.db.new
 
-
-    - name: Schedule daily AIDE check at 6AM
+    - name: Schedule daily AIDE check
       cron:
         name: "Daily AIDE check"
         minute: 0
         hour: 6
         user: root
         job: "/usr/bin/aide --config=/etc/aide/aide.conf --check"
+
 
     - name: Harden default umask in /etc/login.defs
       ansible.builtin.lineinfile:
