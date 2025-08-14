@@ -1,0 +1,40 @@
+- name: Upgrade all Fedora servers
+  hosts: fedora_servers
+  become: true  # Run as root
+
+  tasks:
+    # Refresh package metadata (equivalent to: dnf makecache --refresh)
+    - name: Refresh DNF metadata
+      ansible.builtin.dnf:
+        update_cache: yes
+
+    # Upgrade everything to the latest available (dist-upgrade equivalent)
+    # allowerasing lets DNF resolve package replacements/conflicts
+    - name: Upgrade all packages to latest
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+        update_cache: yes
+        allowerasing: yes
+
+    # Remove orphaned packages that are no longer needed
+    - name: Remove unnecessary packages
+      ansible.builtin.dnf:
+        autoremove: yes
+
+    # needs-restarting -r returns rc=1 if a reboot is required, 0 otherwise
+    - name: Ensure reboot checker is available
+      ansible.builtin.dnf:
+        name: dnf-plugins-core
+        state: present
+
+    - name: Check if a reboot is required
+      ansible.builtin.command: needs-restarting -r
+      register: reboot_check
+      changed_when: false
+      failed_when: reboot_check.rc not in [0, 1]
+
+    - name: Reboot the server if required
+      ansible.builtin.reboot:
+        msg: "Rebooting due to package updates."
+      when: reboot_check.rc == 1

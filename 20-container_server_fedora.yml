@@ -138,6 +138,7 @@
           - strace
           - lsof
           - mc
+          - lynis
           - audit                  
           - btrfs-progs
           - git

@@ -137,8 +137,6 @@
           - lsof
           - mc
           - auditd
-          - apparmor-utils
-          - apparmor-profiles
           - nfs-kernel-server
           - btrfs-progs
           - firewalld
@@ -152,8 +150,6 @@
           - uidmap
           - python3-podman
           - auditd
-          - apparmor-utils
-          - apparmor-profiles
           - jq
           - systemd-container            
           - unbound
