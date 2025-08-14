@@ -239,19 +239,66 @@
         cmd: "firewall-cmd --reload"
       changed_when: false
 
-    - name: Bind interfaces to Firewalld zones
+    - name: Ensure NetworkManager is running and enabled
+      ansible.builtin.systemd:
+        name: NetworkManager
+        enabled: yes
+        state: started
+
+    # Persistently set the firewalld zone on the NM connection profile for each interface.
+    # Idempotent: only changes when the current zone != desired zone.
+    - name: Set NetworkManager connection.zone per interface
+      ansible.builtin.shell: |
+        set -e
+        IFACE="{{ item.interface }}"
+        ZONE="{{ item.zone }}"
+        # Find the active NM connection name bound to this device
+        CONN="$(nmcli -t -f NAME,DEVICE connection show --active | awk -F: -v d="$IFACE" '$2==d{print $1;exit}')"
+        if [ -n "$CONN" ]; then
+          CUR="$(nmcli -g connection.zone connection show "$CONN" || true)"
+          if [ "$CUR" != "$ZONE" ]; then
+            nmcli connection modify "$CONN" connection.zone "$ZONE"
+            nmcli connection up "$CONN" >/dev/null 2>&1 || true
+            echo changed
+          fi
+        else
+          # No active NM profile for this device; nothing to modify here
+          echo no_nm_profile
+        fi
+      args:
+        executable: /bin/bash
+      register: nm_zone_set
+      changed_when: "'changed' in nm_zone_set.stdout"
+      loop: "{{ zone_iface_map }}"
+      loop_control:
+        label: "{{ item.interface }} -> {{ item.zone }}"
+
+    # Also bind interfaces directly in firewalld (harmless when NM already handles zones)
+    - name: Ensure firewalld binds interfaces to desired zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
         interface: "{{ item.interface }}"
         permanent: yes
         immediate: yes
         state: enabled
-      loop:
-        - { zone: "servers",    interface: "eth0" }
-        - { zone: "10G",        interface: "eth1" }
-        - { zone: "containers", interface: "eth2" }
-        - { zone: "nfs",        interface: "eth3" }
-        - { zone: "smb",        interface: "eth4" }
+      loop: "{{ zone_iface_map }}"
+      loop_control:
+        label: "{{ item.interface }}"
+
+    # Remove interfaces from the default 'public' zone so they only live in their target zone
+    - name: Remove interfaces from public zone
+      ansible.builtin.firewalld:
+        zone: public
+        interface: "{{ item.interface }}"
+        permanent: yes
+        immediate: yes
+        state: disabled
+      loop: "{{ zone_iface_map }}"
+
+    - name: Reload firewalld
+      ansible.builtin.command: firewall-cmd --reload
+      changed_when: false
+
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -262,20 +309,20 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        - { zone: "servers", service: "samba" }
+        # - { zone: "servers", service: "samba" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
-        - { zone: "10G",    service: "samba" }
+        # - { zone: "10G",    service: "samba" }
         - { zone: "10G",    service: "http" }
         - { zone: "10G",    service: "https" }
         - { zone: "10G",    service: "dns" }
         - { zone: "10G",    service: "dhcp" }
         - { zone: "10G",    service: "ntp" }
-        - { zone: "nfs",    service: "nfs" }
-        - { zone: "nfs",    service: "mountd" }
-        - { zone: "nfs",    service: "rpc-bind" }
-        - { zone: "smb",    service: "samba" }
+        # - { zone: "nfs",    service: "nfs" }
+        # - { zone: "nfs",    service: "mountd" }
+        # - { zone: "nfs",    service: "rpc-bind" }
+        # - { zone: "smb",    service: "samba" }
 
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
@@ -285,10 +332,10 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "nfs",        port: "32767/tcp" }
-        - { zone: "nfs",        port: "32767/udp" }
-        - { zone: "nfs",        port: "32765/tcp" }
-        - { zone: "nfs",        port: "32765/udp" }
+        # - { zone: "nfs",        port: "32767/tcp" }
+        # - { zone: "nfs",        port: "32767/udp" }
+        # - { zone: "nfs",        port: "32765/tcp" }
+        # - { zone: "nfs",        port: "32765/udp" }
         - { zone: "containers", port: "8053/tcp" }
         - { zone: "containers", port: "8053/udp" }
         - { zone: "containers", port: "8080/tcp" }
