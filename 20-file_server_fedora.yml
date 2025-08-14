@@ -249,8 +249,8 @@
         - { zone: "servers",    interface: "eth0" }
         - { zone: "10G",        interface: "eth1" }
         - { zone: "containers", interface: "eth2" }
-        - { zone: "nfs",        interface: "eth3" }
-        - { zone: "smb",        interface: "eth4" }
+        # - { zone: "nfs",        interface: "eth3" }
+        # - { zone: "smb",        interface: "eth4" }
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -261,20 +261,20 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        - { zone: "servers", service: "samba" }
+        # - { zone: "servers", service: "samba" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
-        - { zone: "10G",    service: "samba" }
+        # - { zone: "10G",    service: "samba" }
         - { zone: "10G",    service: "http" }
         - { zone: "10G",    service: "https" }
         - { zone: "10G",    service: "dns" }
         - { zone: "10G",    service: "dhcp" }
         - { zone: "10G",    service: "ntp" }
-        - { zone: "nfs",    service: "nfs" }
-        - { zone: "nfs",    service: "mountd" }
-        - { zone: "nfs",    service: "rpc-bind" }
-        - { zone: "smb",    service: "samba" }
+        # - { zone: "nfs",    service: "nfs" }
+        # - { zone: "nfs",    service: "mountd" }
+        # - { zone: "nfs",    service: "rpc-bind" }
+        # - { zone: "smb",    service: "samba" }
 
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
@@ -284,10 +284,10 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "nfs",        port: "32767/tcp" }
-        - { zone: "nfs",        port: "32767/udp" }
-        - { zone: "nfs",        port: "32765/tcp" }
-        - { zone: "nfs",        port: "32765/udp" }
+        # - { zone: "nfs",        port: "32767/tcp" }
+        # - { zone: "nfs",        port: "32767/udp" }
+        # - { zone: "nfs",        port: "32765/tcp" }
+        # - { zone: "nfs",        port: "32765/udp" }
         - { zone: "containers", port: "8053/tcp" }
         - { zone: "containers", port: "8053/udp" }
         - { zone: "containers", port: "8080/tcp" }
@@ -673,53 +673,53 @@
         group: podman
         mode: '0644'
 
-# Nextcloud
+# # Nextcloud
 
-    - name: Deploy Nextcloud compose file
-      ansible.builtin.template:
-        src: file_server/compose/nextcloud/compose.yml.j2
-        dest: /home/podman/compose/nextcloud/compose.yml
-        owner: podman
-        group: podman
-        mode: '0644'
+#     - name: Deploy Nextcloud compose file
+#       ansible.builtin.template:
+#         src: file_server/compose/nextcloud/compose.yml.j2
+#         dest: /home/podman/compose/nextcloud/compose.yml
+#         owner: podman
+#         group: podman
+#         mode: '0644'
 
-    - name: Deploy Nextcloud env file
-      ansible.builtin.template:
-        src: file_server/compose/nextcloud/.env.j2
-        dest: /home/podman/compose/nextcloud/.env
-        owner: podman
-        group: podman
-        mode: '0644'
+#     - name: Deploy Nextcloud env file
+#       ansible.builtin.template:
+#         src: file_server/compose/nextcloud/.env.j2
+#         dest: /home/podman/compose/nextcloud/.env
+#         owner: podman
+#         group: podman
+#         mode: '0644'
 
-    - name: Install systemd unit to start Nextcloud
-      ansible.builtin.copy:
-        dest: /home/podman/.config/systemd/user/nextcloud.service
-        content: |
-          [Unit]
-          Description=Nextcloud
+#     - name: Install systemd unit to start Nextcloud
+#       ansible.builtin.copy:
+#         dest: /home/podman/.config/systemd/user/nextcloud.service
+#         content: |
+#           [Unit]
+#           Description=Nextcloud
 
-          [Service]
-          WorkingDirectory=/home/podman/compose/nextcloud
-          ExecStart=/usr/bin/podman-compose up
-          ExecStop=/usr/bin/podman-compose down
-          Restart=always
-          TimeoutStartSec=0
-          StandardOutput=journal
-          StandardError=journal
+#           [Service]
+#           WorkingDirectory=/home/podman/compose/nextcloud
+#           ExecStart=/usr/bin/podman-compose up
+#           ExecStop=/usr/bin/podman-compose down
+#           Restart=always
+#           TimeoutStartSec=0
+#           StandardOutput=journal
+#           StandardError=journal
 
-          [Install]
-          WantedBy=default.target
-        owner: podman
-        group: podman
-        mode: '0644'
+#           [Install]
+#           WantedBy=default.target
+#         owner: podman
+#         group: podman
+#         mode: '0644'
 
-    - name: Deploy Nextcloud config.php file
-      ansible.builtin.template:
-        src: file_server/compose/nextcloud/config.php.j2
-        dest: /home/podman/compose/nextcloud/config.php
-        owner: podman
-        group: podman
-        mode: '0644'
+#     - name: Deploy Nextcloud config.php file
+#       ansible.builtin.template:
+#         src: file_server/compose/nextcloud/config.php.j2
+#         dest: /home/podman/compose/nextcloud/config.php
+#         owner: podman
+#         group: podman
+#         mode: '0644'
 
 # ## Reload systemd and enable/start containers
 
