@@ -250,8 +250,8 @@
         - { zone: "servers",    interface: "eth0" }
         - { zone: "10G",        interface: "eth1" }
         - { zone: "containers", interface: "eth2" }
-        # - { zone: "nfs",        interface: "eth3" }
-        # - { zone: "smb",        interface: "eth4" }
+        - { zone: "nfs",        interface: "eth3" }
+        - { zone: "smb",        interface: "eth4" }
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -262,20 +262,20 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        # - { zone: "servers", service: "samba" }
+        - { zone: "servers", service: "samba" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
-        # - { zone: "10G",    service: "samba" }
+        - { zone: "10G",    service: "samba" }
         - { zone: "10G",    service: "http" }
         - { zone: "10G",    service: "https" }
         - { zone: "10G",    service: "dns" }
         - { zone: "10G",    service: "dhcp" }
         - { zone: "10G",    service: "ntp" }
-        # - { zone: "nfs",    service: "nfs" }
-        # - { zone: "nfs",    service: "mountd" }
-        # - { zone: "nfs",    service: "rpc-bind" }
-        # - { zone: "smb",    service: "samba" }
+        - { zone: "nfs",    service: "nfs" }
+        - { zone: "nfs",    service: "mountd" }
+        - { zone: "nfs",    service: "rpc-bind" }
+        - { zone: "smb",    service: "samba" }
 
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
@@ -285,10 +285,10 @@
         immediate: yes
         state: enabled
       loop:
-        # - { zone: "nfs",        port: "32767/tcp" }
-        # - { zone: "nfs",        port: "32767/udp" }
-        # - { zone: "nfs",        port: "32765/tcp" }
-        # - { zone: "nfs",        port: "32765/udp" }
+        - { zone: "nfs",        port: "32767/tcp" }
+        - { zone: "nfs",        port: "32767/udp" }
+        - { zone: "nfs",        port: "32765/tcp" }
+        - { zone: "nfs",        port: "32765/udp" }
         - { zone: "containers", port: "8053/tcp" }
         - { zone: "containers", port: "8053/udp" }
         - { zone: "containers", port: "8080/tcp" }
