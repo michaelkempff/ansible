@@ -6,3 +6,5 @@ podman_ssh_pubkey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaO0im4N8eEB2LiqldIsbm6
 fqdn: file-server.home.arpa
 hostname: "{{ fqdn.split('.')[0] }}"
 domain: "{{ fqdn | regex_replace('^[^.]+\\.', '') }}"
+samba_share_dir: /srv/smb
+nfs_export_dir: /srv/nfs

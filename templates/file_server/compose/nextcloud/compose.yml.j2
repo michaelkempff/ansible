@@ -5,7 +5,7 @@ services:
     container_name: nextcloud-db
     restart: unless-stopped
     volumes:
-      - /home/podman/data/nextcloud/nextcloud_db:/var/lib/mysql
+      - /home/podman/data/nextcloud/nextcloud_db:/var/lib/mysql:Z
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
@@ -17,7 +17,7 @@ services:
     container_name: nextcloud-redis
     restart: unless-stopped
     volumes:
-      - /home/podman/data/nextcloud/redis:/data
+      - /home/podman/data/nextcloud/redis:/data:Z
 
   nextcloud-app:
     image: nextcloud
@@ -26,8 +26,8 @@ services:
     depends_on:
       - nextcloud-db
     volumes:
-      - /home/podman/data/nextcloud/nextcloud_html:/var/www/html
-      - /home/podman/compose/nextcloud/config.php:/var/www/html/config/config.php
+      - /home/podman/data/nextcloud/nextcloud_html:/var/www/html:Z
+      - /home/podman/compose/nextcloud/config.php:/var/www/html/config/config.php:Z
     environment:
       MYSQL_HOST: ${MYSQL_HOST}
       MYSQL_DATABASE: ${MYSQL_DATABASE}

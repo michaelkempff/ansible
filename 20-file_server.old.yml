@@ -137,6 +137,8 @@
           - lsof
           - mc
           - auditd
+          - apparmor-utils
+          - apparmor-profiles
           - nfs-kernel-server
           - btrfs-progs
           - firewalld
@@ -155,121 +157,11 @@
           - jq
           - systemd-container            
           - unbound
-          - unbound-anchor
           - bind9-utils
           - dnsutils
           - plocate
-          - selinux-basics
-          - selinux-policy-default
-          - policycoreutils
-          - policycoreutils-python-utils   # bevat 'semanage'
-          - selinux-utils
-          - setools
-          - checkpolicy
-          - semanage-utils
         state: present
         update_cache: yes
-
-## Configure SELINUX
-
-    - name: Ensure /etc/selinux/config exists (permissive first boot)
-      copy:
-        dest: /etc/selinux/config
-        mode: '0644'
-        content: |
-          SELINUX=permissive
-          SELINUXTYPE=default
-          SETLOCALDEFS=0
-
-    - name: Activate SELinux (adds kernel flags, schedules relabel)
-      command: selinux-activate
-      register: selinux_activate
-      changed_when: true
-      failed_when: false  # idempotent; script kan al geactiveerd hebben
-
-    - name: Reboot to relabel (can take a while)
-      reboot:
-        reboot_timeout: 3600
-
-    # ----- post-reboot -----
-
-    - name: Verify SELinux is enabled
-      command: getenforce
-      register: getenforce_out
-      changed_when: false
-
-    - name: Switch to enforcing at runtime (if not already)
-      command: setenforce 1
-      when: getenforce_out.stdout != "Enforcing"
-      failed_when: false
-
-    - name: Persist enforcing in /etc/selinux/config
-      lineinfile:
-        path: /etc/selinux/config
-        regexp: '^SELINUX='
-        line: 'SELINUX=enforcing'
-
-    # Samba: label alle gedeelde inhoud als samba_share_t
-    - name: Ensure Samba share directory exists
-      file:
-        path: "{{ samba_share_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Add fcontext rule for Samba share
-      shell: |
-        semanage fcontext -l | grep -q '^{{ samba_share_dir | regex_escape }}(/.*)?\s' \
-        || semanage fcontext -a -t samba_share_t '{{ samba_share_dir }}(/.*)?'
-      args: { executable: /bin/bash }
-
-    - name: Restore SELinux context on Samba share
-      command: restorecon -Rv "{{ samba_share_dir }}"
-
-    # NFS server: booleans + label exportdir als public_content_rw_t
-    - name: Ensure NFS export directory exists
-      file:
-        path: "{{ nfs_export_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Enable NFS export booleans (rw/ro)
-      shell: |
-        getsebool -a | grep -q '^nfs_export_all_ro' && setsebool -P nfs_export_all_ro on || true
-        getsebool -a | grep -q '^nfs_export_all_rw' && setsebool -P nfs_export_all_rw on || true
-      args: { executable: /bin/bash }
-
-    - name: Add fcontext rule for NFS exports (rw content)
-      shell: |
-        semanage fcontext -l | grep -q '^{{ nfs_export_dir | regex_escape }}(/.*)?\s' \
-        || semanage fcontext -a -t public_content_rw_t '{{ nfs_export_dir }}(/.*)?'
-      args: { executable: /bin/bash }
-
-    - name: Restore SELinux context on NFS export
-      command: restorecon -Rv "{{ nfs_export_dir }}"
-
-    # Podman: labels aan, volumes relabelen met :Z
-    - name: Ensure containers.conf enables labeling
-      copy:
-        dest: /etc/containers/containers.conf
-        mode: '0644'
-        content: |
-          [containers]
-          label = true
-
-    - name: Print reminder for Podman volumes
-      debug:
-        msg: >
-          Gebruik ':Z' op volume mounts in compose (bijv. './data:/var/lib/nextcloud:Z')
-          zodat de host-paths automatisch het juiste SELinux label krijgen.
-
-    - name: Label TCP/UDP port 5335 as dns_port_t
-      community.general.seport:
-        ports: 5335
-        proto: "{{ item }}"
-        setype: dns_port_t
-        state: present
-      loop: [tcp, udp]
-#      notify: Restart unbound
 
 ## configue firewalld
 
@@ -981,7 +873,7 @@
         group: podman
         mode: '0644'
 
-    - name: Deploy Nextcloud config.php file
+  - name: Deploy Nextcloud config.php file
       ansible.builtin.template:
         src: file_server/compose/nextcloud/config.php.j2
         dest: /home/podman/compose/nextcloud/config.php
@@ -1079,7 +971,3 @@
     - name: Reset SSH connection after reboot
       meta: reset_connection
       tags: reboot
-
-
-
-

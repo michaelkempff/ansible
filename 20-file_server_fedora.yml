@@ -4,14 +4,11 @@
   become: true  # Run with sudo privileges
 
 ### Set variables
-  
   vars_files:
-    
     - group_vars/file_server/secrets.yml
     - group_vars/file_server/common.yml
 
 ### Run all tasks
-
   tasks:
 
 ## Create paths and mount all filesystems
@@ -49,8 +46,8 @@
         - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data", opts: "subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data/nextcloud", opts: "subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }        
-        
+        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
+
     - name: Mount Btrfs root NVMe U.2 Drive
       ansible.builtin.mount:
         path: "{{ item.path }}"
@@ -69,14 +66,14 @@
         opts: "bind"
         state: mounted
       loop:
-        - { src: "/srv/nvme/backup", dest: "/srv/nfs/backup" }
-        - { src: "/srv/nvme/iso", dest: "/srv/nfs/iso"}
-        - { src: "/srv/nvme/michael", dest: "/srv/smb/michael"}
-               
+        - { src: "/srv/nvme/backup",  dest: "/srv/nfs/backup" }
+        - { src: "/srv/nvme/iso",     dest: "/srv/nfs/iso" }
+        - { src: "/srv/nvme/michael", dest: "/srv/smb/michael" }
+
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
-        line: "{{ item }}" 
+        line: "{{ item }}"
         state: present
       loop:
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /swap btrfs subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
@@ -108,7 +105,7 @@
         line: "127.0.1.1 {{ fqdn }} {{ hostname }}"
         state: present
         create: yes
-      
+
     - name: Ensure /etc/hostname contains only short hostname
       ansible.builtin.copy:
         content: "{{ hostname }}\n"
@@ -119,16 +116,14 @@
 
 ## install packages
 
-    - name: Install required packages
-      ansible.builtin.apt:
+    - name: Install required packages (Fedora)
+      ansible.builtin.dnf:
         name:
-          - apt-transport-https
           - ca-certificates
           - curl
-          - gnupg
-          - lsb-release
+          - gnupg2
           - samba
-          - smbclient
+          - samba-client
           - python3-samba
           - cifs-utils
           - htop
@@ -136,131 +131,115 @@
           - strace
           - lsof
           - mc
-          - auditd
-          - nfs-kernel-server
+          - audit
+          - nfs-utils
           - btrfs-progs
           - firewalld
           - git
           - rsync
           - fastfetch
-          - lynis
           - podman
           - podman-compose
           - slirp4netns
           - uidmap
           - python3-podman
-          - auditd
-          - apparmor-utils
-          - apparmor-profiles
-          - jq
-          - systemd-container            
+          - systemd-container
           - unbound
-          - unbound-anchor
-          - bind9-utils
-          - dnsutils
+          - bind-utils
           - plocate
-          - selinux-basics
-          - selinux-policy-default
+          - jq
+          # SELinux tooling on Fedora:
+          - selinux-policy-targeted
           - policycoreutils
-          - policycoreutils-python-utils   # bevat 'semanage'
-          - selinux-utils
-          - setools
+          - policycoreutils-python-utils   # provides semanage
+          - setools-console
           - checkpolicy
-          - semanage-utils
         state: present
         update_cache: yes
 
 ## Configure SELINUX
 
-    - name: Ensure /etc/selinux/config exists (permissive first boot)
-      copy:
-        dest: /etc/selinux/config
-        mode: '0644'
-        content: |
-          SELINUX=permissive
-          SELINUXTYPE=default
-          SETLOCALDEFS=0
+    # Ensure SELinux is enforcing with the targeted policy (idempotent).
+    # The module reports if a reboot/relabel is required (e.g., if SELinux was disabled).
+    - name: Ensure SELinux is enforcing (targeted)
+      ansible.posix.selinux:
+        policy: targeted
+        state: enforcing
+      register: selinux_result
 
-    - name: Activate SELinux (adds kernel flags, schedules relabel)
-      command: selinux-activate
-      register: selinux_activate
-      changed_when: true
-      failed_when: false  # idempotent; script kan al geactiveerd hebben
+    - name: Schedule full filesystem relabel if required
+      ansible.builtin.file:
+        path: /.autorelabel
+        state: touch
+      when: selinux_result.reboot_required | default(false)
 
-    - name: Reboot to relabel (can take a while)
-      reboot:
+    - name: Reboot to relabel if required
+      ansible.builtin.reboot:
         reboot_timeout: 3600
+      when: selinux_result.reboot_required | default(false)
 
-    # ----- post-reboot -----
-
-    - name: Verify SELinux is enabled
-      command: getenforce
+    - name: Verify SELinux is enabled and enforcing
+      ansible.builtin.command: getenforce
       register: getenforce_out
       changed_when: false
 
     - name: Switch to enforcing at runtime (if not already)
-      command: setenforce 1
+      ansible.builtin.command: setenforce 1
       when: getenforce_out.stdout != "Enforcing"
       failed_when: false
 
-    - name: Persist enforcing in /etc/selinux/config
-      lineinfile:
-        path: /etc/selinux/config
-        regexp: '^SELINUX='
-        line: 'SELINUX=enforcing'
-
-    # Samba: label alle gedeelde inhoud als samba_share_t
+    # Samba: label all shared content as samba_share_t
     - name: Ensure Samba share directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ samba_share_dir }}"
         state: directory
         mode: '0755'
 
     - name: Add fcontext rule for Samba share
-      shell: |
+      ansible.builtin.shell: |
         semanage fcontext -l | grep -q '^{{ samba_share_dir | regex_escape }}(/.*)?\s' \
         || semanage fcontext -a -t samba_share_t '{{ samba_share_dir }}(/.*)?'
       args: { executable: /bin/bash }
 
     - name: Restore SELinux context on Samba share
-      command: restorecon -Rv "{{ samba_share_dir }}"
+      ansible.builtin.command: restorecon -Rv "{{ samba_share_dir }}"
 
-    # NFS server: booleans + label exportdir als public_content_rw_t
+    # NFS server: enable booleans and label export directory as public_content_rw_t
     - name: Ensure NFS export directory exists
-      file:
+      ansible.builtin.file:
         path: "{{ nfs_export_dir }}"
         state: directory
         mode: '0755'
 
     - name: Enable NFS export booleans (rw/ro)
-      shell: |
+      ansible.builtin.shell: |
         getsebool -a | grep -q '^nfs_export_all_ro' && setsebool -P nfs_export_all_ro on || true
         getsebool -a | grep -q '^nfs_export_all_rw' && setsebool -P nfs_export_all_rw on || true
       args: { executable: /bin/bash }
 
     - name: Add fcontext rule for NFS exports (rw content)
-      shell: |
+      ansible.builtin.shell: |
         semanage fcontext -l | grep -q '^{{ nfs_export_dir | regex_escape }}(/.*)?\s' \
         || semanage fcontext -a -t public_content_rw_t '{{ nfs_export_dir }}(/.*)?'
       args: { executable: /bin/bash }
 
     - name: Restore SELinux context on NFS export
-      command: restorecon -Rv "{{ nfs_export_dir }}"
+      ansible.builtin.command: restorecon -Rv "{{ nfs_export_dir }}"
 
-    # Podman: labels aan, volumes relabelen met :Z
+    # Podman: enable labeling and remind to use :Z on volume mounts
     - name: Ensure containers.conf enables labeling
-      copy:
+      ansible.builtin.copy:
         dest: /etc/containers/containers.conf
         mode: '0644'
         content: |
           [containers]
           label = true
 
-    - name: Print reminder for Podman volumes
-      debug:
+    - name: Reminder for Podman volumes
+      ansible.builtin.debug:
         msg: >
-          Gebruik ':Z' op volume mounts in compose (bijv. './data:/var/lib/nextcloud:Z')
-          zodat de host-paths automatisch het juiste SELinux label krijgen.
+          Use ':Z' on volume mounts in compose files (e.g. './data:/var/lib/nextcloud:Z')
+          so host paths get the correct SELinux label automatically.
 
     - name: Label TCP/UDP port 5335 as dns_port_t
       community.general.seport:
@@ -300,8 +279,8 @@
     - name: Reload Firewalld to apply new zones
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
-      changed_when: false 
-       
+      changed_when: false
+
     - name: Bind interfaces to Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -310,12 +289,12 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "servers", interface: "eth0" }
-        - { zone: "10G", interface: "eth1" }
+        - { zone: "servers",    interface: "eth0" }
+        - { zone: "10G",        interface: "eth1" }
         - { zone: "containers", interface: "eth2" }
-        - { zone: "nfs", interface: "eth3" }
-        - { zone: "smb", interface: "eth4" }
-        
+        - { zone: "nfs",        interface: "eth3" }
+        - { zone: "smb",        interface: "eth4" }
+
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -326,21 +305,20 @@
       loop:
         - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "samba" }
-        - { zone: "servers", service: "ssh" }
         - { zone: "servers", service: "dns" }
         - { zone: "servers", service: "dhcp" }
         - { zone: "servers", service: "ntp" }
-        - { zone: "10G", service: "samba" }
-        - { zone: "10G", service: "http" }
-        - { zone: "10G", service: "https" }
-        - { zone: "10G", service: "dns" }
-        - { zone: "10G", service: "dhcp" }
-        - { zone: "10G", service: "ntp" }
-        - { zone: "nfs", service: "nfs" }
-        - { zone: "nfs", service: "mountd" }
-        - { zone: "nfs", service: "rpc-bind" }
-        - { zone: "smb", service: "samba" }
-        
+        - { zone: "10G",    service: "samba" }
+        - { zone: "10G",    service: "http" }
+        - { zone: "10G",    service: "https" }
+        - { zone: "10G",    service: "dns" }
+        - { zone: "10G",    service: "dhcp" }
+        - { zone: "10G",    service: "ntp" }
+        - { zone: "nfs",    service: "nfs" }
+        - { zone: "nfs",    service: "mountd" }
+        - { zone: "nfs",    service: "rpc-bind" }
+        - { zone: "smb",    service: "samba" }
+
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
         zone: "{{ item.zone }}"
@@ -349,10 +327,10 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "nfs", port: "32767/tcp" }
-        - { zone: "nfs", port: "32767/udp" }
-        - { zone: "nfs", port: "32765/tcp" }
-        - { zone: "nfs", port: "32765/udp" }
+        - { zone: "nfs",        port: "32767/tcp" }
+        - { zone: "nfs",        port: "32767/udp" }
+        - { zone: "nfs",        port: "32765/tcp" }
+        - { zone: "nfs",        port: "32765/udp" }
         - { zone: "containers", port: "8053/tcp" }
         - { zone: "containers", port: "8053/udp" }
         - { zone: "containers", port: "8080/tcp" }
@@ -362,34 +340,34 @@
         - { zone: "containers", port: "8084/tcp" }
 
     - name: Enable IP forwarding
-      sysctl:
+      ansible.builtin.sysctl:
         name: net.ipv4.ip_forward
         value: '1'
         sysctl_set: yes
         state: present
         reload: yes
-      
+
     - name: Redirect common ports for rootless podman (rich rules)
       ansible.posix.firewalld:
         zone: "{{ item.zone }}"
         rich_rule: 'rule family="ipv4" forward-port port="{{ item.src_port }}" protocol="{{ item.protocol }}" to-port="{{ item.to_port }}"'
         permanent: yes
         immediate: yes
-        state: enabled  
+        state: enabled
       loop:
         - { zone: "servers", src_port: 53,  protocol: "tcp", to_port: 8053 }
         - { zone: "servers", src_port: 53,  protocol: "udp", to_port: 8053 }
         - { zone: "servers", src_port: 67,  protocol: "tcp", to_port: 8067 }
         - { zone: "servers", src_port: 67,  protocol: "udp", to_port: 8067 }
         - { zone: "servers", src_port: 123, protocol: "udp", to_port: 8123 }
-        - { zone: "10G",    src_port: 80,  protocol: "tcp", to_port: 8080 }        
+        - { zone: "10G",    src_port: 80,  protocol: "tcp", to_port: 8080 }
         - { zone: "10G",    src_port: 443, protocol: "tcp", to_port: 8443 }
         - { zone: "10G",    src_port: 53,  protocol: "tcp", to_port: 8053 }
         - { zone: "10G",    src_port: 53,  protocol: "udp", to_port: 8053 }
         - { zone: "10G",    src_port: 67,  protocol: "tcp", to_port: 8067 }
         - { zone: "10G",    src_port: 67,  protocol: "udp", to_port: 8067 }
         - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }
-        
+
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
         cmd: "firewall-cmd --reload"
@@ -407,7 +385,7 @@
       register: michael_ssh_key
 
     - name: Create .ssh directory for michael (if needed)
-      file:
+      ansible.builtin.file:
         path: /home/michael/.ssh
         state: directory
         owner: michael
@@ -425,13 +403,13 @@
       when: not michael_ssh_key.stat.exists
 
     - name: Read public SSH key
-      slurp:
+      ansible.builtin.slurp:
         src: /home/michael/.ssh/id_rsa.pub
       register: michael_public_key
       become_user: michael
 
     - name: Create /home/michael/build directory with proper ownership
-      file:
+      ansible.builtin.file:
         path: /home/michael/build
         state: directory
         owner: michael
@@ -459,24 +437,32 @@
 
 ## Deploy unbound configuration
 
+    - name: Ensure unbound drop-in directory exists
+      ansible.builtin.file:
+        path: /etc/unbound/unbound.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
     - name: Deploy unbound config file
       ansible.builtin.template:
-          src: file_server/unbound/unbound.conf.j2
-          dest: /etc/unbound/unbound.conf.d/pi-hole.conf
-          owner: root
-          group: root
-          mode: '0644'
+        src: file_server/unbound/unbound.conf.j2
+        dest: /etc/unbound/unbound.conf.d/pi-hole.conf
+        owner: root
+        group: root
+        mode: '0644'
 
-    - name: Stop en disable unbound-resolvconf.service
+    - name: Stop and disable unbound-resolvconf.service (not present on Fedora)
       ansible.builtin.systemd:
         name: unbound-resolvconf.service
         state: stopped
         enabled: false
+      failed_when: false
 
 ## Configure fastfetch for running after login
 
     - name: Make fastfetch run for every interactive shell
-      become: true
       ansible.builtin.copy:
         dest: /etc/profile.d/fastfetch.sh
         owner: root
@@ -484,13 +470,13 @@
         mode: '0755'
         content: |
           #!/bin/sh
-          # only run in an interactive terminal
+          # Only run in an interactive terminal
           if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
             fastfetch
           fi
 
 ## Configure NFS and shares
-    
+
     - name: Ensure NFS service is running and enabled
       ansible.builtin.systemd:
         name: nfs-server
@@ -505,7 +491,7 @@
           /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.11(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
           /srv/nfs/backup 10.12.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
         marker: "# {mark} ANSIBLE MANAGED BLOCK"
-     
+
     - name: Add Nobody-User in [Mapping]
       ansible.builtin.ini_file:
         path: /etc/idmapd.conf
@@ -542,8 +528,8 @@
           port=32765
           udp-port=32765
 
-    - name: Create valid /etc/idmapd.conf
-      copy:
+    - name: Create valid /etc/idmapd.conf (Fedora uses 'nobody' group)
+      ansible.builtin.copy:
         dest: /etc/idmapd.conf
         content: |
           [General]
@@ -552,10 +538,15 @@
 
           [Mapping]
           Nobody-User = nobody
-          Nobody-Group = nogroup
+          Nobody-Group = nobody
         mode: '0644'
-      
+
 ## Configure Samba
+
+    - name: Ensure 'sambashare' group exists (not default on Fedora)
+      ansible.builtin.group:
+        name: sambashare
+        state: present
 
     - name: Ensure michael is in the sambashare group
       ansible.builtin.user:
@@ -588,8 +579,8 @@
         mode: "{{ item.mode }}"
         recurse: no
       loop:
-        - { path: "/srv/smb/michael",       owner: michael,  group: michael,  mode: "2770" }
-        
+        - { path: "/srv/smb/michael", owner: michael, group: michael, mode: "2770" }
+
     - name: Deploy custom smb.conf
       ansible.builtin.template:
         src: file_server/samba/smb.conf.j2
@@ -597,7 +588,7 @@
         owner: root
         group: root
         mode: '0644'
-      
+
 ## Configure podman user for running rootless containers
 
     - name: Ensure user 'podman' exists with a specific password
@@ -605,12 +596,12 @@
         name: podman
         shell: /bin/bash
         home: /home/podman
-        
+
     - name: Set podman’s Linux password
       ansible.builtin.user:
         name: podman
         password: "{{ podman_password | password_hash('sha512') }}"
-        
+
     - name: Ensure podman has authorized SSH key
       ansible.posix.authorized_key:
         user: podman
@@ -618,17 +609,16 @@
         key: "{{ podman_ssh_pubkey }}"
 
     - name: Get podman user's UID
-      command: id -u podman
+      ansible.builtin.command: id -u podman
       register: podman_uid_cmd
       changed_when: false
 
     - name: Set podman_uid fact
-      set_fact:
+      ansible.builtin.set_fact:
         podman_uid: "{{ podman_uid_cmd.stdout }}"
 
     - name: Get podman user's GID
-      ansible.builtin.command:
-        cmd: "id -g podman"
+      ansible.builtin.command: id -g podman
       register: podman_gid_cmd
       changed_when: false
 
@@ -637,7 +627,7 @@
         podman_gid: "{{ podman_gid_cmd.stdout }}"
 
     - name: Enable linger for podman user so socket survives reboot
-      command: loginctl enable-linger podman
+      ansible.builtin.command: loginctl enable-linger podman
 
     - name: Ensure podman.socket is enabled and running for podman user
       ansible.builtin.command: >
@@ -645,7 +635,7 @@
         systemctl --user enable --now podman.socket
 
     - name: Ensure podman's bashrc exports DOCKER_HOST
-      lineinfile:
+      ansible.builtin.lineinfile:
         path: /home/podman/.bashrc
         line: 'export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock'
         create: yes
@@ -654,7 +644,7 @@
         mode: '0644'
 
     - name: Create systemd user unit directory
-      file:
+      ansible.builtin.file:
         path: /home/podman/.config/systemd/user
         state: directory
         owner: podman
@@ -679,82 +669,6 @@
         group: podman
         mode: '0644'
 
-    # - name: Create required directories for podman 
-    #   ansible.builtin.file:
-    #     path: "{{ item }}"
-    #     state: directory
-    #     owner: podman
-    #     group: podman
-    #     mode: '0644'
-    #   loop:
-    #     - /home/podman/data/nextcloud/nextcloud_html/data
-
-## Set file ownership for podman paths
-
-    # - name: Create required directories for podman 
-    #   ansible.builtin.file:
-    #     path: "{{ item }}"
-    #     state: directory
-    #     owner: podman
-    #     group: podman
-    #     mode: '0644'
-    #   loop:
-    #     - /home/podman/data/nextcloud/nextcloud_db
-    #     - /home/podman/data/nextcloud/redis
-    #     - /home/podman/data/nextcloud/nextcloud_html
-    #     - /home/podman/data/nextcloud/nextcloud_html/config
-    #     - /home/podman/data/nextcloud/nextcloud_html/data
-        
-    # - name: Get base subuid for user 'podman'
-    #   ansible.builtin.command:
-    #     argv:
-    #       - awk
-    #       - '-F:'
-    #       - '$1 == "podman" { print $2 }'
-    #       - /etc/subuid
-    #   register: podman_subuid
-    #   changed_when: false
-
-    # - name: Get base subgid for user 'podman'
-    #   ansible.builtin.command:
-    #     argv:
-    #       - awk
-    #       - '-F:'
-    #       - '$1 == "podman" { print $2 }'
-    #       - /etc/subgid
-    #   register: podman_subgid
-    #   changed_when: false
-
-    # - name: Calculate mapped UID and GID for www-data (UID 33)
-    #   set_fact:
-    #     wwwdata_host_uid: "{{ podman_subuid.stdout | int + 33 }}"
-    #     wwwdata_host_gid: "{{ podman_subgid.stdout | int + 33 }}"
-
-    # - name: Ensure correct ownership and permissions for Nextcloud directories
-    #   ansible.builtin.file:
-    #     path: "{{ item }}"
-    #     owner: "{{ wwwdata_host_uid }}"
-    #     group: "{{ wwwdata_host_gid }}"
-    #     mode: "u+rwX"
-    #     recurse: yes
-    #   loop:
-    #     - /home/podman/data/nextcloud/nextcloud_html
-    #     - /home/podman/data/nextcloud/nextcloud_html/config
-    #     - /home/podman/data/nextcloud/nextcloud_html/data
-
-    # - name: Set MariaDB mapped UID/GID
-    #   set_fact:
-    #     mariadb_host_uid: "{{ podman_subuid.stdout | int + 999 }}"
-    #     mariadb_host_gid: "{{ podman_subgid.stdout | int + 999 }}"
-
-    # - name: Ensure correct ownership and permissions for MariaDB volume
-    #   ansible.builtin.file:
-    #     path: /home/podman/data/nextcloud/nextcloud_db
-    #     owner: "{{ mariadb_host_uid }}"
-    #     group: "{{ mariadb_host_gid }}"
-    #     mode: "u+rwX"
-    #     recurse: yes
-
 ## Deploy podman containers
 
 # NTP
@@ -768,12 +682,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start NTP
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/ntp.service
         content: |
           [Unit]
           Description=NTP
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/ntp
           ExecStart=/usr/bin/podman-compose up
@@ -808,12 +722,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start Nginx Proxy Manager
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/npm.service
         content: |
           [Unit]
           Description=Nginx Proxy Manager
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/npm
           ExecStart=/usr/bin/podman-compose up
@@ -840,12 +754,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start Heimdall
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/heimdall.service
         content: |
           [Unit]
           Description=Heimdall
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/heimdall
           ExecStart=/usr/bin/podman-compose up
@@ -880,12 +794,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start Pihole-clients
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/pihole-clients.service
         content: |
           [Unit]
           Description=Pihole-clients
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/pihole-clients
           ExecStart=/usr/bin/podman-compose up
@@ -920,12 +834,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start Pihole-servers
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/pihole-servers.service
         content: |
           [Unit]
           Description=Pihole-clients
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/pihole-servers
           ExecStart=/usr/bin/podman-compose up
@@ -960,12 +874,12 @@
         mode: '0644'
 
     - name: Install systemd unit to start Nextcloud
-      copy:
+      ansible.builtin.copy:
         dest: /home/podman/.config/systemd/user/nextcloud.service
         content: |
           [Unit]
           Description=Nextcloud
-          
+
           [Service]
           WorkingDirectory=/home/podman/compose/nextcloud
           ExecStart=/usr/bin/podman-compose up
@@ -989,85 +903,44 @@
         group: podman
         mode: '0644'
 
-
-
-    # - name: Install systemd unit to start Nextcloud cron service
-    #   copy:
-    #     dest: /home/podman/.config/systemd/user/nextcloud-cron.service
-    #     content: |
-    #       [Unit]
-    #       Description=Nextcloud Cron
-
-    #       [Service]
-    #       ExecStart=/usr/bin/podman exec -u www-data nextcloud-app php /var/www/html/cron.php
-    #     owner: podman
-    #     group: podman
-    #     mode: '0644'
-
-    # - name: Install systemd unit to start Nextcloud cron timer
-    #   copy:
-    #     dest: /home/podman/.config/systemd/user/nextcloud-cron.timer
-    #     content: |
-    #       [Unit]
-    #       Description=Run Nextcloud cron.php every 5 minutes
-
-    #       [Timer]
-    #       OnBootSec=2min
-    #       OnUnitActiveSec=5min
-    #       Persistent=true
-
-    #       [Install]
-    #       WantedBy=default.target
-    #     owner: podman
-    #     group: podman
-    #     mode: '0644'
-
-    # - name: Deploy Nextcloud post install script
-    #   ansible.builtin.template:
-    #     src: file_server/compose/nextcloud/init.sh.j2
-    #     dest: /home/podman/data/nextcloud/init.sh
-    #     owner: podman
-    #     group: podman
-    #     mode: '0644'
-
 ## Reload systemd and enable/start containers
 
     - name: Reload systemd user units for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
 # NTP Server
 
     - name: Enable NTP service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
 
 # Nginx Proxy Manager
 
     - name: Enable NPM service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
 
 # Heimdall
 
     - name: Enable Heimdall service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
 
 # Pihole-clients
 
     - name: Enable Pihole-clients service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
 
 # Pihole-servers
 
     - name: Enable Pihole-servers service for podman
-      command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
+      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
 
 # Nextcloud
 
     # - name: Enable Nextcloud service for podman
-    #   command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
+    #   ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
 
     # - name: Enable cron timer
-    #   command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
-      
+    #   ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
+
 ## Finishing deployment by rebooting the server
 
     - name: Reboot the server
@@ -1079,7 +952,3 @@
     - name: Reset SSH connection after reboot
       meta: reset_connection
       tags: reboot
-
-
-
-

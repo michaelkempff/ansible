@@ -21,8 +21,8 @@ services:
       - DB_MYSQL_NAME=${DB_MYSQL_NAME}
       - DISABLE_IPV6=${DISABLE_IPV6}
     volumes:
-      - '/home/podman/data/npm/app/nginxproxymanager-data:/data'
-      - '/home/podman/data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt'
+      - '/home/podman/data/npm/app/nginxproxymanager-data:/data:Z'
+      - '/home/podman/data/npm/app/nginxproxymanager-ssl:/etc/letsencrypt:Z'
 
   nginxproxymanager-db:
     container_name: npm-db
@@ -36,4 +36,4 @@ services:
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
     volumes:
-      - '/home/podman/data/npm/mysql:/var/lib/mysql'
+      - '/home/podman/data/npm/mysql:/var/lib/mysql:Z'

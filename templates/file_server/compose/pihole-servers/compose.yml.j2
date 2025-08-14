@@ -14,8 +14,8 @@ services:
       FTLCONF_misc_etc_dnsmasq_d=${FTLCONF_misc_etc_dnsmasq_d}
       FTLCONF_dns_listeningMode=${FTLCONF_dns_listeningMode}
     volumes:
-      - '/home/podman/data/pihole-servers/etc-pihole:/etc/pihole'
-      - '/home/podman/data/pihole-servers/etc-dnsmasq.d:/etc/dnsmasq.d'
+      - '/home/podman/data/pihole-servers/etc-pihole:/etc/pihole:Z'
+      - '/home/podman/data/pihole-servers/etc-dnsmasq.d:/etc/dnsmasq.d:Z'
     extra_hosts:
       - "pve-server.home.arpa:10.10.112.10"      
       - "pve-workstation.home.arpa:10.10.112.11"

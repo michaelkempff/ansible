@@ -14,8 +14,8 @@ services:
       FTLCONF_misc_etc_dnsmasq_d=${FTLCONF_misc_etc_dnsmasq_d}
       FTLCONF_dns_listeningMode=${FTLCONF_dns_listeningMode}
     volumes:
-      - '/home/podman/data/pihole-clients/etc-pihole:/etc/pihole'
-      - '/home/podman/data/pihole-clients/etc-dnsmasq.d:/etc/dnsmasq.d'
+      - '/home/podman/data/pihole-clients/etc-pihole:/etc/pihole:Z'
+      - '/home/podman/data/pihole-clients/etc-dnsmasq.d:/etc/dnsmasq.d:Z'
     extra_hosts:
       - "npm.storagemedia.online:10.10.116.20"
       - "pve-server.storagemedia.online:10.10.116.20"

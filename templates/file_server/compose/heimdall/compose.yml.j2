@@ -10,5 +10,5 @@ services:
   #      - PGID=1000
         - TZ=Europe/Amsterdam
       volumes:
-        - '/home/podman/data/heimdall:/config'
+        - '/home/podman/data/heimdall:/config:Z'
       restart: unless-stopped
