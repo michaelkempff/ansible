@@ -9,8 +9,8 @@
     ansible_remote_tmp: /tmp/.ansible/tmp
 
   vars_files:
-    - group_vars/file_server/secrets.yml
-    - group_vars/file_server/common.yml
+    - group_vars/container_server/secrets.yml
+    - group_vars/container_server/common.yml
 
 ### Run all tasks
   tasks:
@@ -474,7 +474,7 @@
 
     - name: Deploy podman registries file
       ansible.builtin.template:
-        src: file_server/podman/registries.conf.j2
+        src: container_server/podman/registries.conf.j2
         dest: /etc/registries.conf
         owner: root
         group: root
@@ -482,7 +482,7 @@
 
     - name: Deploy podman user registries file
       ansible.builtin.template:
-        src: file_server/podman/podman_registries.conf.j2
+        src: container_server/podman/podman_registries.conf.j2
         dest: /home/podman/.config/containers/registries.conf
         owner: podman
         group: podman
@@ -494,7 +494,7 @@
 
     - name: Deploy NTP compose file
       ansible.builtin.template:
-        src: file_server/compose/ntp/compose.yml.j2
+        src: container_server/compose/ntp/compose.yml.j2
         dest: /home/podman/compose/ntp/compose.yml
         owner: podman
         group: podman
@@ -526,7 +526,7 @@
 
     - name: Deploy npm compose file
       ansible.builtin.template:
-        src: file_server/compose/npm/compose.yml.j2
+        src: container_server/compose/npm/compose.yml.j2
         dest: /home/podman/compose/npm/compose.yml
         owner: podman
         group: podman
@@ -534,7 +534,7 @@
 
     - name: Deploy npm env file
       ansible.builtin.template:
-        src: file_server/compose/npm/.env.j2
+        src: container_server/compose/npm/.env.j2
         dest: /home/podman/compose/npm/.env
         owner: podman
         group: podman
@@ -566,7 +566,7 @@
 
     - name: Deploy Heimdall compose file
       ansible.builtin.template:
-        src: file_server/compose/heimdall/compose.yml.j2
+        src: container_server/compose/heimdall/compose.yml.j2
         dest: /home/podman/compose/heimdall/compose.yml
         owner: podman
         group: podman
@@ -598,7 +598,7 @@
 
     - name: Deploy Pihole-clients compose file
       ansible.builtin.template:
-        src: file_server/compose/pihole-clients/compose.yml.j2
+        src: container_server/compose/pihole-clients/compose.yml.j2
         dest: /home/podman/compose/pihole-clients/compose.yml
         owner: podman
         group: podman
@@ -606,7 +606,7 @@
 
     - name: Deploy Pihole-clients env file
       ansible.builtin.template:
-        src: file_server/compose/pihole-clients/.env.j2
+        src: container_server/compose/pihole-clients/.env.j2
         dest: /home/podman/compose/pihole-clients/.env
         owner: podman
         group: podman
@@ -638,7 +638,7 @@
 
     - name: Deploy Pihole-servers compose file
       ansible.builtin.template:
-        src: file_server/compose/pihole-servers/compose.yml.j2
+        src: container_server/compose/pihole-servers/compose.yml.j2
         dest: /home/podman/compose/pihole-servers/compose.yml
         owner: podman
         group: podman
@@ -646,7 +646,7 @@
 
     - name: Deploy Pihole-servers env file
       ansible.builtin.template:
-        src: file_server/compose/pihole-servers/.env.j2
+        src: container_server/compose/pihole-servers/.env.j2
         dest: /home/podman/compose/pihole-servers/.env
         owner: podman
         group: podman
@@ -678,7 +678,7 @@
 
 #     - name: Deploy Nextcloud compose file
 #       ansible.builtin.template:
-#         src: file_server/compose/nextcloud/compose.yml.j2
+#         src: container_server/compose/nextcloud/compose.yml.j2
 #         dest: /home/podman/compose/nextcloud/compose.yml
 #         owner: podman
 #         group: podman
@@ -686,7 +686,7 @@
 
 #     - name: Deploy Nextcloud env file
 #       ansible.builtin.template:
-#         src: file_server/compose/nextcloud/.env.j2
+#         src: container_server/compose/nextcloud/.env.j2
 #         dest: /home/podman/compose/nextcloud/.env
 #         owner: podman
 #         group: podman
@@ -716,7 +716,7 @@
 
 #     - name: Deploy Nextcloud config.php file
 #       ansible.builtin.template:
-#         src: file_server/compose/nextcloud/config.php.j2
+#         src: container_server/compose/nextcloud/config.php.j2
 #         dest: /home/podman/compose/nextcloud/config.php
 #         owner: podman
 #         group: podman
