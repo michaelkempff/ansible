@@ -1,9 +1,13 @@
 ---
-- name: Configure file server
+- name: Configure container server
   hosts: file_server
   become: true  # Run with sudo privileges
 
 ### Set variables
+
+  vars:
+    ansible_remote_tmp: /tmp/.ansible/tmp
+
   vars_files:
     - group_vars/file_server/secrets.yml
     - group_vars/file_server/common.yml
@@ -23,12 +27,40 @@
       loop:
         - /swap      # Mountpoint for swapfile
         - /srv/nvme  # Base for NVMe subvolumes
-        - /srv/nfs   # Base for NFS bind mounts
-        - /srv/smb   # Base for SMB bind mounts
         - /srv/mnt   # Directory for remote NFS mounts
-        - /srv/nfs/backup
-        - /srv/nfs/iso
-        - /srv/smb/michael
+        
+    - name: Detect current /home mount (if any)
+      ansible.builtin.command: findmnt -no SOURCE,FSTYPE,OPTIONS /home
+      register: home_findmnt
+      changed_when: false
+      failed_when: false
+
+    - name: Remove Fedora Cloud /home entry from /etc/fstab (Btrfs subvolume)
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        regexp: '^\S+\s+/home\s+btrfs\s+.*subvol=.*'
+        state: absent
+        backup: yes
+
+    - name: "Check if /home is still mounted"
+      ansible.builtin.command: mountpoint -q /home
+      register: home_still_mounted
+      changed_when: false
+      failed_when: false
+
+    - name: "Fallback: lazy-unmount /home if still busy"
+      ansible.builtin.command:
+        argv: ["umount", "-l", "/home"]
+      when: home_still_mounted.rc == 0
+      failed_when: false
+
+    - name: Ensure /home directory exists (empty mountpoint)
+      ansible.builtin.file:
+        path: /home
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
 
     - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
       ansible.builtin.mount:
@@ -41,9 +73,6 @@
         - { path: "/swap", opts: "subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home", opts: "subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/srv/nvme/backup", opts: "subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/srv/nvme/michael", opts: "subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/srv/nvme/iso", opts: "subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data", opts: "subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data/nextcloud", opts: "subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
         - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
@@ -58,18 +87,6 @@
       loop:
         - { path: "/srv/nvme/btrfsroot", uuid: "19583b5d-8c79-4f16-b902-153124679f5e", opts: "noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
 
-    - name: Bind mount directories
-      ansible.builtin.mount:
-        path: "{{ item.dest }}"
-        src: "{{ item.src }}"
-        fstype: none
-        opts: "bind"
-        state: mounted
-      loop:
-        - { src: "/srv/nvme/backup",  dest: "/srv/nfs/backup" }
-        - { src: "/srv/nvme/iso",     dest: "/srv/nfs/iso" }
-        - { src: "/srv/nvme/michael", dest: "/srv/smb/michael" }
-
     - name: Ensure all mounts are persistent in /etc/fstab
       ansible.builtin.lineinfile:
         path: /etc/fstab
@@ -79,18 +96,12 @@
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /swap btrfs subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home btrfs subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/backup btrfs subvol=@srv_nvme_backup,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/michael btrfs subvol=@srv_nvme_michael,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/iso btrfs subvol=@srv_nvme_iso,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data btrfs subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/nextcloud btrfs subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
         - "/swap/swapfile none swap defaults 0 0"
-        - "/srv/nvme/backup /srv/nfs/backup none bind 0 0"
-        - "/srv/nvme/iso /srv/nfs/iso none bind 0 0"
-        - "/srv/nvme/michael /srv/smb/michael none bind 0 0"
-
+        
 ## Set FQDN
 
     - name: Set hostname with hostnamectl
@@ -121,39 +132,32 @@
         name:
           - ca-certificates
           - curl
-          - gnupg2
-          - samba
-          - samba-client
-          - python3-samba
-          - cifs-utils
+          - gpg
           - htop
           - iotop
           - strace
           - lsof
           - mc
-          - audit
-          - nfs-utils
+          - audit                  
           - btrfs-progs
-          - firewalld
           - git
           - rsync
-          - fastfetch
+          - plocate
+          - jq
+          - fastfetch              
+          - firewalld
           - podman
           - podman-compose
           - slirp4netns
-          - uidmap
           - python3-podman
+          - openssh-clients        
           - systemd-container
-          - unbound
-          - bind-utils
-          - plocate
-          - jq
-          # SELinux tooling on Fedora:
           - selinux-policy-targeted
           - policycoreutils
-          - policycoreutils-python-utils   # provides semanage
+          - policycoreutils-python-utils
           - setools-console
           - checkpolicy
+          - python3-bcrypt         
         state: present
         update_cache: yes
 
@@ -188,44 +192,6 @@
       when: getenforce_out.stdout != "Enforcing"
       failed_when: false
 
-    # Samba: label all shared content as samba_share_t
-    - name: Ensure Samba share directory exists
-      ansible.builtin.file:
-        path: "{{ samba_share_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Add fcontext rule for Samba share
-      ansible.builtin.shell: |
-        semanage fcontext -l | grep -q '^{{ samba_share_dir | regex_escape }}(/.*)?\s' \
-        || semanage fcontext -a -t samba_share_t '{{ samba_share_dir }}(/.*)?'
-      args: { executable: /bin/bash }
-
-    - name: Restore SELinux context on Samba share
-      ansible.builtin.command: restorecon -Rv "{{ samba_share_dir }}"
-
-    # NFS server: enable booleans and label export directory as public_content_rw_t
-    - name: Ensure NFS export directory exists
-      ansible.builtin.file:
-        path: "{{ nfs_export_dir }}"
-        state: directory
-        mode: '0755'
-
-    - name: Enable NFS export booleans (rw/ro)
-      ansible.builtin.shell: |
-        getsebool -a | grep -q '^nfs_export_all_ro' && setsebool -P nfs_export_all_ro on || true
-        getsebool -a | grep -q '^nfs_export_all_rw' && setsebool -P nfs_export_all_rw on || true
-      args: { executable: /bin/bash }
-
-    - name: Add fcontext rule for NFS exports (rw content)
-      ansible.builtin.shell: |
-        semanage fcontext -l | grep -q '^{{ nfs_export_dir | regex_escape }}(/.*)?\s' \
-        || semanage fcontext -a -t public_content_rw_t '{{ nfs_export_dir }}(/.*)?'
-      args: { executable: /bin/bash }
-
-    - name: Restore SELinux context on NFS export
-      ansible.builtin.command: restorecon -Rv "{{ nfs_export_dir }}"
-
     # Podman: enable labeling and remind to use :Z on volume mounts
     - name: Ensure containers.conf enables labeling
       ansible.builtin.copy:
@@ -239,16 +205,7 @@
       ansible.builtin.debug:
         msg: >
           Use ':Z' on volume mounts in compose files (e.g. './data:/var/lib/nextcloud:Z')
-          so host paths get the correct SELinux label automatically.
-
-    - name: Label TCP/UDP port 5335 as dns_port_t
-      community.general.seport:
-        ports: 5335
-        proto: "{{ item }}"
-        setype: dns_port_t
-        state: present
-      loop: [tcp, udp]
-#      notify: Restart unbound
+          so host paths get the correct SELinux label automatically.    
 
 ## configue firewalld
 
@@ -435,31 +392,6 @@
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias df='df -h'" }
         - { user: 'root', bashrc: '/root/.bashrc', alias: "alias ports='ss -tulpn'" }
 
-## Deploy unbound configuration
-
-    - name: Ensure unbound drop-in directory exists
-      ansible.builtin.file:
-        path: /etc/unbound/unbound.conf.d
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Deploy unbound config file
-      ansible.builtin.template:
-        src: file_server/unbound/unbound.conf.j2
-        dest: /etc/unbound/unbound.conf.d/pi-hole.conf
-        owner: root
-        group: root
-        mode: '0644'
-
-    - name: Stop and disable unbound-resolvconf.service (not present on Fedora)
-      ansible.builtin.systemd:
-        name: unbound-resolvconf.service
-        state: stopped
-        enabled: false
-      failed_when: false
-
 ## Configure fastfetch for running after login
 
     - name: Make fastfetch run for every interactive shell
@@ -474,120 +406,6 @@
           if [ -t 1 ] && command -v fastfetch >/dev/null 2>&1; then
             fastfetch
           fi
-
-## Configure NFS and shares
-
-    - name: Ensure NFS service is running and enabled
-      ansible.builtin.systemd:
-        name: nfs-server
-        enabled: yes
-        state: started
-
-    - name: Define NFS exports
-      ansible.builtin.blockinfile:
-        path: /etc/exports
-        block: |
-          /srv/nfs 10.12.112.50(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.55(rw,fsid=0,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/iso 10.12.112.10(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }}) 10.12.112.11(rw,fsid=1,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-          /srv/nfs/backup 10.12.112.0/24(rw,fsid=2,all_squash,anonuid={{ nobody_uid }},anongid={{ nobody_gid }})
-        marker: "# {mark} ANSIBLE MANAGED BLOCK"
-
-    - name: Add Nobody-User in [Mapping]
-      ansible.builtin.ini_file:
-        path: /etc/idmapd.conf
-        section: Mapping
-        option: Nobody-User
-        value: nobody
-        backup: yes
-
-    - name: Add Nobody-Group in [Mapping]
-      ansible.builtin.ini_file:
-        path: /etc/idmapd.conf
-        section: Mapping
-        option: Nobody-Group
-        value: nobody
-        backup: yes
-
-    - name: Export NFS shares
-      ansible.builtin.command: exportfs -ra
-      changed_when: false
-
-    - name: Set fixed ports for NFS services in /etc/nfs.conf
-      ansible.builtin.blockinfile:
-        path: /etc/nfs.conf
-        marker: "# {mark} ANSIBLE MANAGED NFS PORTS"
-        block: |
-          [mountd]
-          port=20048
-
-          [lockd]
-          port=32767
-          udp-port=32767
-
-          [statd]
-          port=32765
-          udp-port=32765
-
-    - name: Create valid /etc/idmapd.conf (Fedora uses 'nobody' group)
-      ansible.builtin.copy:
-        dest: /etc/idmapd.conf
-        content: |
-          [General]
-          Verbosity = 0
-          Domain = home.arpa
-
-          [Mapping]
-          Nobody-User = nobody
-          Nobody-Group = nobody
-        mode: '0644'
-
-## Configure Samba
-
-    - name: Ensure 'sambashare' group exists (not default on Fedora)
-      ansible.builtin.group:
-        name: sambashare
-        state: present
-
-    - name: Ensure michael is in the sambashare group
-      ansible.builtin.user:
-        name: michael
-        groups: sambashare
-        append: yes
-
-    - name: Ensure /home/michael is owned by michael:michael (recursively)
-      ansible.builtin.file:
-        path: /home/michael
-        owner: michael
-        group: michael
-        recurse: yes
-        state: directory
-
-    - name: Create Samba users for each share
-      ansible.builtin.shell: |
-        echo -e "{{ lookup('vars', item + '_smb_password') }}\n{{ lookup('vars', item + '_smb_password') }}" \
-          | smbpasswd -s -a {{ item }}
-      args:
-        executable: /bin/bash
-      loop:
-        - michael
-
-    - name: Ensure share directories have correct owner/group and mode
-      ansible.builtin.file:
-        path: "{{ item.path }}"
-        owner: "{{ item.owner }}"
-        group: "{{ item.group }}"
-        mode: "{{ item.mode }}"
-        recurse: no
-      loop:
-        - { path: "/srv/smb/michael", owner: michael, group: michael, mode: "2770" }
-
-    - name: Deploy custom smb.conf
-      ansible.builtin.template:
-        src: file_server/samba/smb.conf.j2
-        dest: /etc/samba/smb.conf
-        owner: root
-        group: root
-        mode: '0644'
 
 ## Configure podman user for running rootless containers
 
@@ -903,35 +721,35 @@
         group: podman
         mode: '0644'
 
-## Reload systemd and enable/start containers
+# ## Reload systemd and enable/start containers
 
-    - name: Reload systemd user units for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
+#     - name: Reload systemd user units for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
-# NTP Server
+# # NTP Server
 
-    - name: Enable NTP service for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
+#     - name: Enable NTP service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
 
-# Nginx Proxy Manager
+# # Nginx Proxy Manager
 
-    - name: Enable NPM service for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
+#     - name: Enable NPM service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
 
-# Heimdall
+# # Heimdall
 
-    - name: Enable Heimdall service for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
+#     - name: Enable Heimdall service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
 
-# Pihole-clients
+# # Pihole-clients
 
-    - name: Enable Pihole-clients service for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
+#     - name: Enable Pihole-clients service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
 
-# Pihole-servers
+# # Pihole-servers
 
-    - name: Enable Pihole-servers service for podman
-      ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
+#     - name: Enable Pihole-servers service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
 
 # Nextcloud
 
