@@ -1,6 +1,6 @@
 ---
 - name: Configure container server
-  hosts: file_server
+  hosts: container_server
   become: true  # Run with sudo privileges
 
 ### Set variables
