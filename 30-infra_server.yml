@@ -12,96 +12,7 @@
 ### Run all tasks
   tasks:
 
-## Create paths and mount all filesystems
-
-    - name: Create required directories (excluding Btrfs-managed paths)
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-      loop:
-        - /swap      # Mountpoint for swapfile
-        - /srv/nvme  # Base for NVMe subvolumes
-        - /srv/mnt   # Directory for remote NFS mounts
-        
-    - name: Detect current /home mount (if any)
-      ansible.builtin.command: findmnt -no SOURCE,FSTYPE,OPTIONS /home
-      register: home_findmnt
-      changed_when: false
-      failed_when: false
-
-    - name: Remove Fedora Cloud /home entry from /etc/fstab (Btrfs subvolume)
-      ansible.builtin.lineinfile:
-        path: /etc/fstab
-        regexp: '^\S+\s+/home\s+btrfs\s+.*subvol=.*'
-        state: absent
-        backup: yes
-
-    - name: "Check if /home is still mounted"
-      ansible.builtin.command: mountpoint -q /home
-      register: home_still_mounted
-      changed_when: false
-      failed_when: false
-
-    - name: "Fallback: lazy-unmount /home if still busy"
-      ansible.builtin.command:
-        argv: ["umount", "-l", "/home"]
-      when: home_still_mounted.rc == 0
-      failed_when: false
-
-    - name: Ensure /home directory exists (empty mountpoint)
-      ansible.builtin.file:
-        path: /home
-        state: directory
-        owner: root
-        group: root
-        mode: '0755'
-
-    - name: Mount Btrfs subvolumes (NVMe U.2 Drive)
-      ansible.builtin.mount:
-        path: "{{ item.path }}"
-        src: "UUID=19583b5d-8c79-4f16-b902-153124679f5e"
-        fstype: btrfs
-        opts: "{{ item.opts }}"
-        state: mounted
-      loop:
-        - { path: "/swap", opts: "subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home", opts: "subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/srv/nvme", opts: "subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data", opts: "subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/nextcloud", opts: "subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/pbs", opts: "subvol=^podman_data_pbs,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-        - { path: "/home/podman/data/sabnzbd", opts: "subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-
-    - name: Mount Btrfs root NVMe U.2 Drive
-      ansible.builtin.mount:
-        path: "{{ item.path }}"
-        src: "UUID={{ item.uuid }}"
-        fstype: btrfs
-        opts: "{{ item.opts }}"
-        state: mounted
-      loop:
-        - { path: "/srv/nvme/btrfsroot", uuid: "19583b5d-8c79-4f16-b902-153124679f5e", opts: "noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd" }
-
-    - name: Ensure all mounts are persistent in /etc/fstab
-      ansible.builtin.lineinfile:
-        path: /etc/fstab
-        line: "{{ item }}"
-        state: present
-      loop:
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /swap btrfs subvol=@swap,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home btrfs subvol=@home,noatime,nodev,nosuid,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme btrfs subvol=@srv_nvme,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /srv/nvme/btrfsroot btrfs noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data btrfs subvol=^podman_data,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/nextcloud btrfs subvol=^podman_data_nextcloud,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/pbs btrfs subvol=^podman_data_pbs,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "UUID=19583b5d-8c79-4f16-b902-153124679f5e /home/podman/data/sabnzbd btrfs subvol=^podman_data_sabnzbd,noatime,nodev,nosuid,noexec,compress=zstd,autodefrag,space_cache=v2,ssd 0 0"
-        - "/swap/swapfile none swap defaults 0 0"
-        
-## Set FQDN
+    ## Set FQDN
 
     - name: Set hostname with hostnamectl
       ansible.builtin.command:
@@ -124,7 +35,7 @@
         group: root
         mode: '0644'
 
-## install packages
+        ## install packages
 
     - name: Install required packages (Fedora)
       ansible.builtin.dnf:
@@ -205,7 +116,7 @@
       ansible.builtin.debug:
         msg: >
           Use ':Z' on volume mounts in compose files (e.g. './data:/var/lib/nextcloud:Z')
-          so host paths get the correct SELinux label automatically.    
+          so host paths get the correct SELinux label automatically.
 
 ## configue firewalld
 
@@ -229,8 +140,6 @@
         - servers
         - 10G
         - containers
-        - nfs
-        - smb
       when: "item not in firewalld_existing_zones.stdout"
 
     - name: Reload Firewalld to apply new zones
@@ -296,8 +205,7 @@
 
     - name: Reload firewalld
       ansible.builtin.command: firewall-cmd --reload
-      changed_when: false
-
+      changed_when: false   
 
     - name: Allow required services in Firewalld zones
       ansible.builtin.firewalld:
@@ -308,13 +216,14 @@
         state: enabled
       loop:
         - { zone: "servers", service: "ssh" }
-        # - { zone: "servers", service: "samba" }
-        # - { zone: "10G",    service: "samba" }
-        # - { zone: "10G",    service: "nfs" }
-        # - { zone: "nfs",    service: "nfs" }
-        # - { zone: "nfs",    service: "mountd" }
-        # - { zone: "nfs",    service: "rpc-bind" }
-        # - { zone: "smb",    service: "samba" }
+        - { zone: "servers", service: "dns" }
+        - { zone: "servers", service: "dhcp" }
+        - { zone: "servers", service: "ntp" }
+        - { zone: "10G",    service: "http" }
+        - { zone: "10G",    service: "https" }
+        - { zone: "10G",    service: "dns" }
+        - { zone: "10G",    service: "dhcp" }
+        - { zone: "10G",    service: "ntp" } 
 
     - name: Open required ports in Firewalld zones
       ansible.builtin.firewalld:
@@ -324,13 +233,13 @@
         immediate: yes
         state: enabled
       loop:
-        - { zone: "servers", port: "8007/tcp" }
-        - { zone: "containers", port: "8080/tcp" }        
-        # - { zone: "nfs",        port: "32767/tcp" }
-        # - { zone: "nfs",        port: "32767/udp" }
-        # - { zone: "nfs",        port: "32765/tcp" }
-        # - { zone: "nfs",        port: "32765/udp" }
-        
+        - { zone: "containers", port: "8053/tcp" }
+        - { zone: "containers", port: "8053/udp" }
+        - { zone: "containers", port: "8081/tcp" }
+        - { zone: "containers", port: "8082/tcp" }
+        - { zone: "containers", port: "8083/tcp" }
+        - { zone: "containers", port: "8084/tcp" }
+
     - name: Enable IP forwarding
       ansible.builtin.sysctl:
         name: net.ipv4.ip_forward
@@ -338,6 +247,27 @@
         sysctl_set: yes
         state: present
         reload: yes
+
+    - name: Redirect common ports for rootless podman (rich rules)
+      ansible.posix.firewalld:
+        zone: "{{ item.zone }}"
+        rich_rule: 'rule family="ipv4" forward-port port="{{ item.src_port }}" protocol="{{ item.protocol }}" to-port="{{ item.to_port }}"'
+        permanent: yes
+        immediate: yes
+        state: enabled
+      loop:
+        - { zone: "servers", src_port: 53,  protocol: "tcp", to_port: 8053 }
+        - { zone: "servers", src_port: 53,  protocol: "udp", to_port: 8053 }
+        - { zone: "servers", src_port: 67,  protocol: "tcp", to_port: 8067 }
+        - { zone: "servers", src_port: 67,  protocol: "udp", to_port: 8067 }
+        - { zone: "servers", src_port: 123, protocol: "udp", to_port: 8123 }
+        - { zone: "10G",    src_port: 80,  protocol: "tcp", to_port: 8080 }
+        - { zone: "10G",    src_port: 443, protocol: "tcp", to_port: 8443 }
+        - { zone: "10G",    src_port: 53,  protocol: "tcp", to_port: 8053 }
+        - { zone: "10G",    src_port: 53,  protocol: "udp", to_port: 8053 }
+        - { zone: "10G",    src_port: 67,  protocol: "tcp", to_port: 8067 }
+        - { zone: "10G",    src_port: 67,  protocol: "udp", to_port: 8067 }
+        - { zone: "10G",    src_port: 123, protocol: "udp", to_port: 8123 }
 
     - name: Reload Firewalld to apply changes
       ansible.builtin.command:
@@ -501,66 +431,221 @@
         group: podman
         mode: '0644'
 
-# # Nextcloud
+## Deploy podman containers
 
-#     - name: Deploy Nextcloud compose file
-#       ansible.builtin.template:
-#         src: container_server/compose/nextcloud/compose.yml.j2
-#         dest: /home/podman/compose/nextcloud/compose.yml
-#         owner: podman
-#         group: podman
-#         mode: '0644'
+# NTP
 
-#     - name: Deploy Nextcloud env file
-#       ansible.builtin.template:
-#         src: container_server/compose/nextcloud/.env.j2
-#         dest: /home/podman/compose/nextcloud/.env
-#         owner: podman
-#         group: podman
-#         mode: '0644'
+    - name: Deploy NTP compose file
+      ansible.builtin.template:
+        src: container_server/compose/ntp/compose.yml.j2
+        dest: /home/podman/compose/ntp/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
 
-#     - name: Install systemd unit to start Nextcloud
-#       ansible.builtin.copy:
-#         dest: /home/podman/.config/systemd/user/nextcloud.service
-#         content: |
-#           [Unit]
-#           Description=Nextcloud
+    - name: Install systemd unit to start NTP
+      ansible.builtin.copy:
+        dest: /home/podman/.config/systemd/user/ntp.service
+        content: |
+          [Unit]
+          Description=NTP
 
-#           [Service]
-#           WorkingDirectory=/home/podman/compose/nextcloud
-#           ExecStart=/usr/bin/podman-compose up
-#           ExecStop=/usr/bin/podman-compose down
-#           Restart=always
-#           TimeoutStartSec=0
-#           StandardOutput=journal
-#           StandardError=journal
+          [Service]
+          WorkingDirectory=/home/podman/compose/ntp
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
 
-#           [Install]
-#           WantedBy=default.target
-#         owner: podman
-#         group: podman
-#         mode: '0644'
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
 
-#     - name: Deploy Nextcloud config.php file
-#       ansible.builtin.template:
-#         src: container_server/compose/nextcloud/config.php.j2
-#         dest: /home/podman/compose/nextcloud/config.php
-#         owner: podman
-#         group: podman
-#         mode: '0644'
+# Nginx Proxy Manager
 
-# ## Reload systemd and enable/start containers
+    - name: Deploy npm compose file
+      ansible.builtin.template:
+        src: container_server/compose/npm/compose.yml.j2
+        dest: /home/podman/compose/npm/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Deploy npm env file
+      ansible.builtin.template:
+        src: container_server/compose/npm/.env.j2
+        dest: /home/podman/compose/npm/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Nginx Proxy Manager
+      ansible.builtin.copy:
+        dest: /home/podman/.config/systemd/user/npm.service
+        content: |
+          [Unit]
+          Description=Nginx Proxy Manager
+
+          [Service]
+          WorkingDirectory=/home/podman/compose/npm
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
+# Heimdall
+
+    - name: Deploy Heimdall compose file
+      ansible.builtin.template:
+        src: container_server/compose/heimdall/compose.yml.j2
+        dest: /home/podman/compose/heimdall/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Heimdall
+      ansible.builtin.copy:
+        dest: /home/podman/.config/systemd/user/heimdall.service
+        content: |
+          [Unit]
+          Description=Heimdall
+
+          [Service]
+          WorkingDirectory=/home/podman/compose/heimdall
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
+# Pihole-clients
+
+    - name: Deploy Pihole-clients compose file
+      ansible.builtin.template:
+        src: container_server/compose/pihole-clients/compose.yml.j2
+        dest: /home/podman/compose/pihole-clients/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Deploy Pihole-clients env file
+      ansible.builtin.template:
+        src: container_server/compose/pihole-clients/.env.j2
+        dest: /home/podman/compose/pihole-clients/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Pihole-clients
+      ansible.builtin.copy:
+        dest: /home/podman/.config/systemd/user/pihole-clients.service
+        content: |
+          [Unit]
+          Description=Pihole-clients
+
+          [Service]
+          WorkingDirectory=/home/podman/compose/pihole-clients
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
+# Pihole-servers
+
+    - name: Deploy Pihole-servers compose file
+      ansible.builtin.template:
+        src: container_server/compose/pihole-servers/compose.yml.j2
+        dest: /home/podman/compose/pihole-servers/compose.yml
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Deploy Pihole-servers env file
+      ansible.builtin.template:
+        src: container_server/compose/pihole-servers/.env.j2
+        dest: /home/podman/compose/pihole-servers/.env
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    - name: Install systemd unit to start Pihole-servers
+      ansible.builtin.copy:
+        dest: /home/podman/.config/systemd/user/pihole-servers.service
+        content: |
+          [Unit]
+          Description=Pihole-clients
+
+          [Service]
+          WorkingDirectory=/home/podman/compose/pihole-servers
+          ExecStart=/usr/bin/podman-compose up
+          ExecStop=/usr/bin/podman-compose down
+          Restart=always
+          TimeoutStartSec=0
+          StandardOutput=journal
+          StandardError=journal
+
+          [Install]
+          WantedBy=default.target
+        owner: podman
+        group: podman
+        mode: '0644'
+
+    # ## Reload systemd and enable/start containers
 
 #     - name: Reload systemd user units for podman
 #       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user daemon-reload'
 
-# Nextcloud
+# # NTP Server
 
-    # - name: Enable Nextcloud service for podman
-    #   ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud.service'
+#     - name: Enable NTP service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable ntp.service'
 
-    # - name: Enable cron timer
-    #   ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable nextcloud-cron.timer'
+# # Nginx Proxy Manager
+
+#     - name: Enable NPM service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable npm.service'
+
+# # Heimdall
+
+#     - name: Enable Heimdall service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable heimdall.service'
+
+# # Pihole-clients
+
+#     - name: Enable Pihole-clients service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-clients.service'
+
+# # Pihole-servers
+
+#     - name: Enable Pihole-servers service for podman
+#       ansible.builtin.command: machinectl shell podman@ /bin/bash -c 'systemctl --user enable pihole-servers.service'
 
 ## Finishing deployment by rebooting the server
 
